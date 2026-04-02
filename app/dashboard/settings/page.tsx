@@ -64,8 +64,8 @@ export default function SettingsPage() {
                     <span className="font-heading font-bold text-ink-900 text-2xl">MC</span>
                   </div>
                   <div>
-                    <p className="font-semibold text-ink-800">Mama Chioma</p>
-                    <p className="text-ink-400 text-sm">mama.chioma@example.com</p>
+                    <p className="font-semibold text-ink-800">Titilayo Farms & Agro Supplies </p>
+                    <p className="text-ink-400 text-sm">titilayo.farms@gmail.com</p>
                     <button className="text-jade text-sm font-medium mt-1 hover:text-jade-600 transition-colors">Change photo</button>
                   </div>
                 </div>
@@ -73,16 +73,16 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-ink-600 text-sm font-medium mb-2">First name</label>
-                      <input defaultValue="Chioma" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
+                      <input defaultValue="Titilayo" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                     </div>
                     <div>
                       <label className="block text-ink-600 text-sm font-medium mb-2">Last name</label>
-                      <input defaultValue="Nwosu" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
+                      <input defaultValue="Hamzat" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-ink-600 text-sm font-medium mb-2">Email address</label>
-                    <input defaultValue="mama.chioma@example.com" type="email" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
+                    <input defaultValue="titilayo.farms@gmail.com" type="email" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                   </div>
                   <div>
                     <label className="block text-ink-600 text-sm font-medium mb-2">Phone number</label>
@@ -90,11 +90,11 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-ink-600 text-sm font-medium mb-2">Business name</label>
-                    <input defaultValue="Mama Chioma Stores" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
+                    <input defaultValue="Titilayo Farms & Agro Supplies" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                   </div>
                   <div>
                     <label className="block text-ink-600 text-sm font-medium mb-2">Business location</label>
-                    <input defaultValue="Aba, Abia State" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
+                    <input defaultValue="Ibadan, Oyo State" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                   </div>
                   <button className="flex items-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg">
                     <Save size={15} />
