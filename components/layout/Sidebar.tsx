@@ -46,7 +46,7 @@ export default function Sidebar() {
       {/* Business name */}
       <div className="px-4 py-3 mx-3 mt-3 bg-jade/5 border border-jade/10 rounded-xl">
         <p className="text-jade text-xs font-medium uppercase tracking-wide">Active Store</p>
-        <p className="text-white font-semibold text-sm mt-0.5">Mama Chioma Stores</p>
+        <p className="text-white font-semibold text-sm mt-0.5">Titilayo Farms & Agro Supplies</p>
       </div>
 
       {/* Nav */}

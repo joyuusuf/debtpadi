@@ -58,7 +58,7 @@ export default function SignUpPage() {
                   type="text"
                   value={form.name}
                   onChange={e => update('name', e.target.value)}
-                  placeholder="Mama Fashola Pharmacy"
+                  placeholder="Titilayo Oyeyemi"
                   className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-ink-500 focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm"
                   required
                 />
@@ -70,7 +70,7 @@ export default function SignUpPage() {
                   type="email"
                   value={form.email}
                   onChange={e => update('email', e.target.value)}
-                  placeholder="mybusiness@gmail.com"
+                  placeholder="titilayo@gmail.com"
                   className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-ink-500 focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm"
                   required
                 />
@@ -123,7 +123,7 @@ export default function SignUpPage() {
                   type="text"
                   value={form.businessName}
                   onChange={e => update('businessName', e.target.value)}
-                  placeholder="Mama Chioma Stores"
+                  placeholder="Titilayo Farms & Agro Supplies"
                   className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-ink-500 focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm"
                   required
                 />
@@ -134,6 +134,7 @@ export default function SignUpPage() {
                 <select className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm appearance-none">
                   <option value="" className="bg-ink-800">Select your business type</option>
                   <option value="provision" className="bg-ink-800">Provision / Grocery Store</option>
+                  <option value="provision" className="bg-ink-800">Farm Supplies / Equipments</option>
                   <option value="pharmacy" className="bg-ink-800">Pharmacy / Chemist</option>
                   <option value="fabric" className="bg-ink-800">Fabric / Clothing Shop</option>
                   <option value="electronics" className="bg-ink-800">Electronics Store</option>

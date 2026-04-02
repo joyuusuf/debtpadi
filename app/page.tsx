@@ -250,7 +250,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-jade text-sm font-semibold uppercase tracking-widest mb-3">Pricing</p>
-            <h2 className="font-heading text-4xl md:text-5xl font-bold">Pay less than one cup<br />of Nescafé per day</h2>
+            <h2 className="font-heading text-4xl md:text-5xl font-bold">Pay less than a sachet<br />of fertilizer per day</h2>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
