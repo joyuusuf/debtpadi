@@ -58,7 +58,7 @@ export default function SignUpPage() {
                   type="text"
                   value={form.name}
                   onChange={e => update('name', e.target.value)}
-                  placeholder="Chukwuemeka Obi"
+                  placeholder="Mama Fashola Pharmacy"
                   className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-ink-500 focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm"
                   required
                 />
@@ -70,7 +70,7 @@ export default function SignUpPage() {
                   type="email"
                   value={form.email}
                   onChange={e => update('email', e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="mybusiness@gmail.com"
                   className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-ink-500 focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm"
                   required
                 />
