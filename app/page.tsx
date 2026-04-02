@@ -50,7 +50,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-ink-300 text-xl md:text-2xl max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-up delay-200">
-            Track who owes you, send WhatsApp reminders with one tap, and collect your money faster. 
+            Track who owes you, send WhatsApp reminders with one tap, and collect your money faster.
             No more torn notebooks. No more disputes.
           </p>
 
@@ -223,12 +223,12 @@ export default function LandingPage() {
               {
                 step: "03",
                 title: "Send a reminder",
-                desc: "Tap once to send a WhatsApp message. DebtPadi writes the message for you — polite and clear.",
+                desc: "Tap once to send a WhatsApp message. DebtPadi writes the message for you, polite and clear.",
               },
               {
                 step: "04",
                 title: "Record payments",
-                desc: "When they pay — fully or partly — mark it. The balance updates automatically.",
+                desc: "When they pay, fully or partly, mark it. The balance updates automatically.",
               },
             ].map((s, i) => (
               <div key={i} className="flex gap-8 items-start group">
@@ -319,9 +319,9 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                name: "Mama Chioma",
-                biz: "Provision Store, Aba",
-                text: "Before DebtPadi, I was losing thousands every month. My notebook got wet and I lost everything. Now my records are always safe.",
+                name: "Titilayo Farms & Agro Supplies",
+                biz: "Agro Store, Dugbe, Ibadan",
+                text: "Before DebtPadi, tracking customer credit and product sales was stressful. Records got mixed up and payments were hard to follow. Now everything is organized, from agro inputs to customer debts, and nothing goes missing.",
               },
               {
                 name: "Alhaji Musa",
@@ -329,10 +329,10 @@ export default function LandingPage() {
                 text: "The WhatsApp reminder is genius. I don't have to embarrass myself by calling customers. One tap and the message goes. Very professional.",
               },
               {
-                name: "Titi Fashola",
-                biz: "Fabric Shop, Lagos",
-                text: "I used to chase people for months. Now I can see exactly who owes me and for how long. My collections improved 40% in the first month.",
-              },
+                name: "Chinedu Okafor",
+                biz: "Electronics Shop, Onitsha",
+                text: "Before DebtPadi, I was always guessing who owed me and how much. Some customers delayed payments for months. Now I track every sale and debt clearly, and I’ve been able to recover more money without stress."
+              }
             ].map((t, i) => (
               <div key={i} className="bg-ink-800 border border-white/5 rounded-2xl p-6">
                 <p className="text-ink-300 leading-relaxed mb-6 text-sm">&ldquo;{t.text}&rdquo;</p>
