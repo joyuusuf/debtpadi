@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DebtPadi — Smart Credit Tracker for Nigerian Businesses",
+  title: "DebtPadi - Smart Credit Tracker for Nigerian Businesses",
   description: "Track who owes you, send reminders, and get paid faster. Built for Nigerian small business owners.",
 };
 

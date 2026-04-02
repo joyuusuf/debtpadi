@@ -19,7 +19,8 @@ export default function TopBar({ title }: { title?: string }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-ink-50/80 backdrop-blur-xl border-b border-ink-100 px-6 py-4 flex items-center gap-4 md:ml-60">
+      {/* <header className="sticky top-0 z-30 bg-ink-50/80 backdrop-blur-xl border-b border-ink-100 px-6 py-4 flex items-center gap-4 md:ml-60"> */}
+      <header className="sticky top-0 z-30 bg-ink-50/80 backdrop-blur-xl border-b border-ink-100 px-6 py-4 flex items-center gap-4">
         <button className="md:hidden text-ink-500 hover:text-ink-900 transition-colors" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
