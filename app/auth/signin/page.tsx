@@ -35,7 +35,7 @@ export default function SignInPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="mybusiness@gmail.com"
                 className="w-full bg-ink-800 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-ink-500 focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all text-sm"
               />
             </div>
@@ -153,7 +153,7 @@ export default function SignInPage() {
 
           <p className="text-center text-ink-500 text-xs mt-6 leading-relaxed">
             &ldquo;I collected ₦80,000 in the first week after signing up.&rdquo;<br />
-            <span className="text-jade">— Mama Chioma, Aba</span>
+            <span className="text-jade">- Titilayo, Ibadan</span>
           </p>
         </div>
       </div>
