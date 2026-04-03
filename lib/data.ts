@@ -138,8 +138,8 @@ export const mockDebts: DebtRecord[] = [
     description: "Agribusiness - Broilers, layers, eggs, and poultry feed",
     amount: 7200,
     amountPaid: 7200,
-    dueDate: "2025-01-20",
-    createdAt: "2025-01-01",
+    dueDate: "2026-01-20",
+    createdAt: "2026-01-01",
     status: "cleared",
     payments: [
       { id: "p4", amount: 3200, date: "2025-01-10", note: "First payment" },
@@ -149,7 +149,7 @@ export const mockDebts: DebtRecord[] = [
   {
     id: "d4",
     customerId: "c4",
-    customerName: "Blessing Eze",
+    customerName: "Toye Olajide",
     description: "Agribusiness - Catfish, tilapia, fingerlings, and fish feed",
     amount: 32000,
     amountPaid: 0,
@@ -175,7 +175,7 @@ export const mockDebts: DebtRecord[] = [
   {
     id: "d6",
     customerId: "c6",
-    customerName: "Ngozi Okonkwo",
+    customerName: "Hassan Mohammed",
     description: "Agribusiness - Goats, cattle, sheep, and animal feed",
     amount: 55000,
     amountPaid: 20000,
