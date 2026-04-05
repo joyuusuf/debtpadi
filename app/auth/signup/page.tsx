@@ -116,7 +116,7 @@ export default function SignUpPage() {
               </button>
             </form>
           ) : (
-            <form className="space-y-5 animate-fade-up delay-200" onSubmit={(e) => { e.preventDefault(); window.location.href = '/dashboard'; }}>
+            <form className="space-y-5 animate-fade-up delay-200" onSubmit={(e) => { e.preventDefault(); window.location.href = '/auth/verify-email'; }}>
               <div>
                 <label className="block text-ink-300 text-sm font-medium mb-2">Business name</label>
                 <input
@@ -271,3 +271,4 @@ export default function SignUpPage() {
     </div>
   );
 }
+ 

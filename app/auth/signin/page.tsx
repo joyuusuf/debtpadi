@@ -59,7 +59,7 @@ export default function SignInPage() {
                 </button>
               </div>
               <div className="flex justify-end mt-2">
-                <Link href="#" className="text-jade text-sm hover:text-jade-400 transition-colors">
+                <Link href="/auth/forgot-password" className="text-jade text-sm hover:text-jade-400 transition-colors">
                   Forgot password?
                 </Link>
               </div>
@@ -160,3 +160,4 @@ export default function SignInPage() {
     </div>
   );
 }
+ 
