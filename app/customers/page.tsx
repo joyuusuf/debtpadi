@@ -1,6 +1,5 @@
-
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus, Search, Phone, MapPin, MessageSquare, MoreVertical,
   TrendingUp, X, ArrowLeft, Calendar, ShoppingBag, CreditCard, CheckCircle2
@@ -32,7 +31,7 @@ interface Customer {
   history?: HistoryEntry[];
 }
 
-// ─── Seed mock history for existing customers ─────────────────────────────────
+// ─── Seed mock history ────────────────────────────────────────────────────────
 
 function seedHistory(customers: Customer[]): Customer[] {
   const sampleHistory: HistoryEntry[][] = [
@@ -73,24 +72,118 @@ function formatDate(dateStr: string) {
   });
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Skeleton helper ──────────────────────────────────────────────────────────
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse bg-ink-100 rounded-lg ${className}`} />;
+}
+
+// ─── Skeleton UI ──────────────────────────────────────────────────────────────
+
+function CustomersSkeleton() {
+  return (
+    <>
+      <TopBar title="Customers" />
+      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
+
+        {/* Header row */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+          <Skeleton className="w-64 h-4 flex-1" />
+          <Skeleton className="w-full sm:w-36 h-11 rounded-xl" />
+        </div>
+
+        {/* Search bar */}
+        <Skeleton className="w-full sm:max-w-sm h-11 rounded-xl mb-6" />
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white border border-ink-100 rounded-xl p-3 sm:p-4 text-center">
+              <Skeleton className="w-12 h-7 mx-auto mb-2" />
+              <Skeleton className="w-20 h-3 mx-auto" />
+            </div>
+          ))}
+        </div>
+
+        {/* Customer card grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white border border-ink-100 rounded-2xl p-5">
+
+              {/* Card header */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-11 h-11 rounded-xl flex-shrink-0" />
+                  <div className="space-y-2">
+                    <Skeleton className="w-28 h-3.5" />
+                    <Skeleton className="w-16 h-3 rounded-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Phone / address */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="w-3 h-3 rounded" />
+                  <Skeleton className="w-28 h-3" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="w-3 h-3 rounded" />
+                  <Skeleton className="w-36 h-3" />
+                </div>
+              </div>
+
+              {/* Debt info box */}
+              <div className="bg-ink-50 rounded-xl p-3 mb-4 space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="w-20 h-3" />
+                  <Skeleton className="w-20 h-3" />
+                </div>
+                <Skeleton className="w-full h-1.5 rounded-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="w-16 h-2.5" />
+                  <Skeleton className="w-16 h-2.5" />
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Skeleton className="flex-1 h-9 rounded-xl" />
+                <Skeleton className="flex-1 h-9 rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [showAddModal, setShowAddModal] = useState(false);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
 
-  // form state
   const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) return <CustomersSkeleton />;
 
   const filtered = customers.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.phone.includes(search)
   );
 
-  // ── Add customer ────────────────────────────────────────────────────────────
+  // ── Add customer ─────────────────────────────────────────────────────────────
 
   function handleAddCustomer(e: React.FormEvent) {
     e.preventDefault();
@@ -121,7 +214,7 @@ export default function CustomersPage() {
     setFormError("");
   }
 
-  // ── WhatsApp remind ─────────────────────────────────────────────────────────
+  // ── WhatsApp remind ──────────────────────────────────────────────────────────
 
   const sendWhatsApp = (name: string, phone: string, amount: number) => {
     const msg = encodeURIComponent(
@@ -130,7 +223,7 @@ export default function CustomersPage() {
     window.open(`https://wa.me/234${phone.replace(/^0/, "")}?text=${msg}`, "_blank");
   };
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -217,7 +310,6 @@ export default function CustomersPage() {
                   )}
                 </div>
 
-                {/* Debt info */}
                 <div className="bg-ink-50 rounded-xl p-3 mb-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-ink-500 text-xs">Outstanding</span>
@@ -237,7 +329,6 @@ export default function CustomersPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-2">
                   {outstanding > 0 && (
                     <button
@@ -272,7 +363,7 @@ export default function CustomersPage() {
         )}
       </div>
 
-      {/* ── Add Customer Modal ───────────────────────────────────────────────── */}
+      {/* ── Add Customer Modal ────────────────────────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-6 animate-fade-up">
@@ -354,7 +445,7 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* ── View History Drawer/Modal ────────────────────────────────────────── */}
+      {/* ── View History Drawer/Modal ─────────────────────────────────────────── */}
       {historyCustomer && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col max-h-[90vh] animate-fade-up">
@@ -426,7 +517,6 @@ export default function CustomersPage() {
                         key={entry.id}
                         className="flex items-center gap-3 bg-white border border-ink-100 rounded-xl px-4 py-3"
                       >
-                        {/* Icon */}
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           entry.type === "payment" ? "bg-jade/10" : "bg-coral-50"
                         }`}>
@@ -435,8 +525,6 @@ export default function CustomersPage() {
                             : <CreditCard size={16} className="text-coral-500" />
                           }
                         </div>
-
-                        {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-ink-700 text-sm font-medium truncate">{entry.description}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
@@ -444,8 +532,6 @@ export default function CustomersPage() {
                             <span className="text-ink-400 text-xs">{formatDate(entry.date)}</span>
                           </div>
                         </div>
-
-                        {/* Amount */}
                         <div className="text-right flex-shrink-0">
                           <p className={`font-heading font-bold text-sm ${
                             entry.type === "payment" ? "text-jade-600" : "text-coral-600"
@@ -463,7 +549,7 @@ export default function CustomersPage() {
               )}
             </div>
 
-            {/* Footer close */}
+            {/* Footer */}
             <div className="px-6 pb-6 pt-3 border-t border-ink-100 flex-shrink-0">
               <button
                 onClick={() => setHistoryCustomer(null)}
