@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, CheckCircle, TrendingDown, Calendar } from "lucide-react";
 import { mockDebts, formatNaira } from "@/lib/data";
 import TopBar from "@/components/layout/TopBar";
@@ -17,8 +17,114 @@ const allPayments = mockDebts.flatMap(debt =>
 
 const totalCollected = allPayments.reduce((sum, p) => sum + p.amount, 0);
 
+// ─── Skeleton helper ──────────────────────────────────────────────────────────
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse bg-ink-100 rounded-lg ${className}`} />;
+}
+
+// ─── Skeleton UI ──────────────────────────────────────────────────────────────
+
+function PaymentsSkeleton() {
+  return (
+    <>
+      <TopBar title="Payments" />
+      <div className="px-6 py-8 max-w-7xl mx-auto">
+
+        {/* Header row */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+          <Skeleton className="w-64 h-4 flex-1" />
+          <Skeleton className="w-full sm:w-40 h-11 rounded-xl flex-shrink-0" />
+        </div>
+
+        {/* Stats cards */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="border border-ink-100 bg-white rounded-2xl p-5 space-y-2">
+              <Skeleton className="w-28 h-3" />
+              <Skeleton className="w-36 h-7" />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+
+          {/* Payment history table */}
+          <div className="lg:col-span-2 bg-white border border-ink-100 rounded-2xl overflow-hidden">
+            {/* Table header */}
+            <div className="px-6 py-4 border-b border-ink-50">
+              <Skeleton className="w-36 h-4 mb-2" />
+              <Skeleton className="w-52 h-3" />
+            </div>
+
+            {/* Rows */}
+            <div className="divide-y divide-ink-50">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="px-6 py-4 flex items-center gap-4">
+                  {/* Icon */}
+                  <Skeleton className="w-10 h-10 rounded-xl flex-shrink-0" />
+
+                  {/* Name + description */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <Skeleton className="w-32 h-3.5" />
+                    <Skeleton className="w-48 h-3" />
+                  </div>
+
+                  {/* Amount + date */}
+                  <div className="text-right flex-shrink-0 space-y-1.5">
+                    <Skeleton className="w-24 h-4" />
+                    <Skeleton className="w-20 h-3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-4">
+
+            {/* By Customer card */}
+            <div className="bg-white border border-ink-100 rounded-2xl p-5">
+              <Skeleton className="w-24 h-4 mb-4" />
+              <div className="space-y-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex justify-between">
+                      <Skeleton className="w-28 h-3" />
+                      <Skeleton className="w-20 h-3" />
+                    </div>
+                    <Skeleton className="w-full h-1.5 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Collection Rate card */}
+            <div className="bg-jade/5 border border-jade/20 rounded-2xl p-5 space-y-2">
+              <Skeleton className="w-32 h-4 bg-jade/20" />
+              <Skeleton className="w-20 h-10 bg-jade/20 rounded-xl" />
+              <Skeleton className="w-44 h-3 bg-jade/20" />
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function PaymentsPage() {
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) return <PaymentsSkeleton />;
 
   return (
     <>
@@ -58,7 +164,7 @@ export default function PaymentsPage() {
               <p className="text-ink-400 text-xs mt-0.5">All recorded payments, newest first</p>
             </div>
             <div className="divide-y divide-ink-50">
-              {allPayments.map((payment, i) => (
+              {allPayments.map((payment) => (
                 <div key={payment.id} className="px-6 py-4 flex items-center gap-4 table-row-hover">
                   <div className="w-10 h-10 rounded-xl bg-jade/10 flex items-center justify-center flex-shrink-0">
                     <TrendingDown size={16} className="text-jade" />

@@ -181,7 +181,7 @@ export default function SettingsPage() {
                       {avatarSrc ? (
                         <img src={avatarSrc} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="font-heading font-bold text-ink-900 text-xl sm:text-2xl">MC</span>
+                        <span className="font-heading font-bold text-ink-900 text-xl sm:text-2xl">TF</span>
                       )}
                     </button>
 
@@ -329,7 +329,7 @@ export default function SettingsPage() {
                 <div className="bg-jade/5 border border-jade/20 rounded-2xl p-4 sm:p-6">
                   <p className="font-heading font-bold text-lg text-ink-900">Pro Plan</p>
                   <p className="text-jade font-bold text-2xl sm:text-3xl mt-1">
-                    ₦3,500<span className="text-ink-400 font-normal text-sm">/month</span>
+                    ₦30000<span className="text-ink-400 font-normal text-sm">/month</span>
                   </p>
                   <ul className="mt-3 space-y-1.5">
                     {["Unlimited customers", "WhatsApp reminders", "PDF export", "Priority support"].map(f => (
