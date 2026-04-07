@@ -427,7 +427,7 @@ export default function LandingPage() {
           </Link>
           <p className="text-ink-500 text-sm">© 2026 DebtPadi. Built with love for Nigerian SMEs.</p>
           <div className="flex gap-6">
-            <Link href="privacy-policy" className="text-ink-500 hover:text-white transition-colors text-sm">Privacy</Link>
+            <Link href="privacy" className="text-ink-500 hover:text-white transition-colors text-sm">Privacy</Link>
             <Link href="terms-of-service" className="text-ink-500 hover:text-white transition-colors text-sm">Terms</Link>
             <Link href="contact" className="text-ink-500 hover:text-white transition-colors text-sm">Contact</Link>
           </div>
