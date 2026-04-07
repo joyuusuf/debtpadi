@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Search, MessageSquare, CheckCircle, Clock, MoreVertical, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 import { mockDebts as initialDebts, formatNaira, getDaysOverdue, getStatusColor, DebtRecord } from "@/lib/data";
-
+import TopBar from "@/components/layout/TopBar";
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function computeStatus(amountPaid: number, amount: number, dueDate: string): DebtRecord["status"] {
@@ -23,10 +23,11 @@ const EMPTY_FORM = {
 
 // ─── Skeleton primitives ─────────────────────────────────────────────────────
 
-function Bone({ className = "" }: { className?: string }) {
+function Bone({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div
       className={`bg-ink-100 rounded-lg animate-pulse ${className}`}
+      style={style}
     />
   );
 }
@@ -467,14 +468,16 @@ export default function DebtorsPage() {
   }
 
   return (
+    <>
+     <TopBar title="Debtors" />
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
 
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div className="flex-1">
+        {/* <div className="flex-1">
           <h1 className="font-heading font-bold text-2xl text-ink-900">Debtors</h1>
           <p className="text-ink-500 text-sm mt-0.5">Track all credit sales and outstanding balances</p>
-        </div>
+        </div> */}
         <button
           onClick={() => setAddOpen(true)}
           className="flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg w-full sm:w-auto"
@@ -706,5 +709,6 @@ export default function DebtorsPage() {
         <DeleteModal debt={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />
       )}
     </div>
+    </> 
   );
 }

@@ -4,7 +4,6 @@ import { Plus, CheckCircle, TrendingDown, Calendar } from "lucide-react";
 import { mockDebts, formatNaira } from "@/lib/data";
 import TopBar from "@/components/layout/TopBar";
 
-// Flatten all payments with debt context
 const allPayments = mockDebts.flatMap(debt =>
   debt.payments.map(p => ({
     ...p,
@@ -17,28 +16,23 @@ const allPayments = mockDebts.flatMap(debt =>
 
 const totalCollected = allPayments.reduce((sum, p) => sum + p.amount, 0);
 
-// ─── Skeleton helper ──────────────────────────────────────────────────────────
-
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-ink-100 rounded-lg ${className}`} />;
 }
-
-// ─── Skeleton UI ──────────────────────────────────────────────────────────────
 
 function PaymentsSkeleton() {
   return (
     <>
       <TopBar title="Payments" />
-      <div className="px-6 py-8 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 py-8 max-w-7xl mx-auto">
 
-        {/* Header row */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
           <Skeleton className="w-64 h-4 flex-1" />
           <Skeleton className="w-full sm:w-40 h-11 rounded-xl flex-shrink-0" />
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        {/* Stats cards — 1 col on mobile, 3 on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="border border-ink-100 bg-white rounded-2xl p-5 space-y-2">
               <Skeleton className="w-28 h-3" />
@@ -48,29 +42,19 @@ function PaymentsSkeleton() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-
-          {/* Payment history table */}
           <div className="lg:col-span-2 bg-white border border-ink-100 rounded-2xl overflow-hidden">
-            {/* Table header */}
             <div className="px-6 py-4 border-b border-ink-50">
               <Skeleton className="w-36 h-4 mb-2" />
               <Skeleton className="w-52 h-3" />
             </div>
-
-            {/* Rows */}
             <div className="divide-y divide-ink-50">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="px-6 py-4 flex items-center gap-4">
-                  {/* Icon */}
                   <Skeleton className="w-10 h-10 rounded-xl flex-shrink-0" />
-
-                  {/* Name + description */}
                   <div className="flex-1 min-w-0 space-y-2">
                     <Skeleton className="w-32 h-3.5" />
                     <Skeleton className="w-48 h-3" />
                   </div>
-
-                  {/* Amount + date */}
                   <div className="text-right flex-shrink-0 space-y-1.5">
                     <Skeleton className="w-24 h-4" />
                     <Skeleton className="w-20 h-3" />
@@ -80,10 +64,7 @@ function PaymentsSkeleton() {
             </div>
           </div>
 
-          {/* Right column */}
           <div className="space-y-4">
-
-            {/* By Customer card */}
             <div className="bg-white border border-ink-100 rounded-2xl p-5">
               <Skeleton className="w-24 h-4 mb-4" />
               <div className="space-y-4">
@@ -98,22 +79,17 @@ function PaymentsSkeleton() {
                 ))}
               </div>
             </div>
-
-            {/* Collection Rate card */}
             <div className="bg-jade/5 border border-jade/20 rounded-2xl p-5 space-y-2">
               <Skeleton className="w-32 h-4 bg-jade/20" />
               <Skeleton className="w-20 h-10 bg-jade/20 rounded-xl" />
               <Skeleton className="w-44 h-3 bg-jade/20" />
             </div>
-
           </div>
         </div>
       </div>
     </>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
@@ -126,31 +102,48 @@ export default function PaymentsPage() {
 
   if (loading) return <PaymentsSkeleton />;
 
+  const stats = [
+    {
+      label: "Total Collected",
+      value: formatNaira(totalCollected),
+      color: "text-jade-600",
+      bg: "bg-jade-50 border-jade-100",
+    },
+    {
+      label: "Payments This Month",
+      value: allPayments.filter(p => p.date.startsWith("2024-01")).length.toString(),
+      color: "text-amber-600",
+      bg: "bg-amber-50 border-amber-100",
+    },
+    {
+      label: "Average Payment",
+      value: formatNaira(Math.round(totalCollected / allPayments.length)),
+      color: "text-ink-700",
+      bg: "bg-white border-ink-100",
+    },
+  ];
+
   return (
     <>
       <TopBar title="Payments" />
-      <div className="px-6 py-8 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 py-8 max-w-7xl mx-auto">
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
           <p className="text-ink-500 text-sm flex-1">Record and track all incoming payments</p>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg flex-shrink-0"
+            className="flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg w-full sm:w-auto flex-shrink-0"
           >
             <Plus size={16} />
             Record Payment
           </button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {[
-            { label: "Total Collected", value: formatNaira(totalCollected), color: "text-jade-600", bg: "bg-jade-50 border-jade-100" },
-            { label: "Payments This Month", value: allPayments.filter(p => p.date.startsWith("2024-01")).length.toString(), color: "text-amber-600", bg: "bg-amber-50 border-amber-100" },
-            { label: "Average Payment", value: formatNaira(Math.round(totalCollected / allPayments.length)), color: "text-ink-700", bg: "bg-white border-ink-100" },
-          ].map((s, i) => (
-            <div key={i} className={`border rounded-2xl p-5 ${s.bg}`}>
-              <p className="text-ink-500 text-xs font-medium mb-1">{s.label}</p>
+        {/* Stats — stacks on mobile, row on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          {stats.map((s, i) => (
+            <div key={i} className={`border rounded-2xl p-5 flex sm:block items-center justify-between ${s.bg}`}>
+              <p className="text-ink-500 text-xs font-medium sm:mb-1">{s.label}</p>
               <p className={`font-heading font-bold text-2xl ${s.color}`}>{s.value}</p>
             </div>
           ))}
@@ -165,23 +158,29 @@ export default function PaymentsPage() {
             </div>
             <div className="divide-y divide-ink-50">
               {allPayments.map((payment) => (
-                <div key={payment.id} className="px-6 py-4 flex items-center gap-4 table-row-hover">
+                <div key={payment.id} className="px-4 sm:px-6 py-4 flex items-center gap-3 sm:gap-4 table-row-hover">
                   <div className="w-10 h-10 rounded-xl bg-jade/10 flex items-center justify-center flex-shrink-0">
                     <TrendingDown size={16} className="text-jade" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-ink-800 text-sm">{payment.customerName}</p>
-                    <p className="text-ink-400 text-xs truncate max-w-xs">{payment.debtDescription}</p>
+                    <p className="text-ink-400 text-xs truncate">{payment.debtDescription}</p>
                     {payment.note && (
                       <p className="text-ink-300 text-xs italic mt-0.5">{payment.note}</p>
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-heading font-bold text-jade-600 text-base">+{formatNaira(payment.amount)}</p>
+                    <p className="font-heading font-bold text-jade-600 text-sm sm:text-base">
+                      +{formatNaira(payment.amount)}
+                    </p>
                     <div className="flex items-center gap-1 justify-end mt-0.5">
                       <Calendar size={11} className="text-ink-400" />
                       <p className="text-ink-400 text-xs">
-                        {new Date(payment.date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {new Date(payment.date).toLocaleDateString("en-NG", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
                       </p>
                     </div>
                   </div>
@@ -228,14 +227,19 @@ export default function PaymentsPage() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-up">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-heading font-bold text-xl text-ink-900">Record Payment</h2>
-                <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors text-lg">×</button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors text-lg"
+                >
+                  ×
+                </button>
               </div>
               <form className="space-y-4" onSubmit={e => { e.preventDefault(); setShowModal(false); }}>
                 <div>
                   <label className="block text-ink-600 text-sm font-medium mb-2">Select Debt *</label>
                   <select required className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all">
                     <option value="">Choose debt record...</option>
-                    {mockDebts.filter(d => d.status !== 'cleared').map(d => (
+                    {mockDebts.filter(d => d.status !== "cleared").map(d => (
                       <option key={d.id} value={d.id}>
                         {d.customerName} — {formatNaira(d.amount - d.amountPaid)} remaining
                       </option>
@@ -248,10 +252,10 @@ export default function PaymentsPage() {
                 </div>
                 <div>
                   <label className="block text-ink-600 text-sm font-medium mb-2">Payment Date</label>
-                  <input type="date" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" defaultValue={new Date().toISOString().split('T')[0]} />
+                  <input type="date" defaultValue={new Date().toISOString().split("T")[0]} className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                 </div>
                 <div>
-                  <label className="block text-ink-600 text-sm font-medium mb-2">Payment method</label>
+                  <label className="block text-ink-600 text-sm font-medium mb-2">Payment Method</label>
                   <select className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all">
                     <option>Cash</option>
                     <option>Bank Transfer</option>
@@ -264,7 +268,9 @@ export default function PaymentsPage() {
                   <input type="text" placeholder="e.g. Cash payment at store" className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all" />
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors">Cancel</button>
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors">
+                    Cancel
+                  </button>
                   <button type="submit" className="flex-[2] bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3 rounded-xl transition-all hover:shadow-lg flex items-center justify-center gap-2">
                     <CheckCircle size={16} />
                     Save Payment
