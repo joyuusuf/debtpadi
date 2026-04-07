@@ -1,30 +1,52 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, CheckCircle, TrendingUp, Users, Bell, Shield, Wifi, BarChart3, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CheckCircle, TrendingUp, Users, Bell, Shield, Wifi, BarChart3, ChevronRight, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 export default function LandingPage() {
+  const router = useRouter();
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+
+  const navigate = (key: string, href: string) => {
+    setLoadingKey(key);
+    setTimeout(() => router.push(href), 400);
+  };
+
+  const Spinner = () => (
+    <Loader2 size={16} className="animate-spin" />
+  );
+
   return (
     <div className="min-h-screen bg-ink-900 text-white overflow-x-hidden">
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between border-b border-white/5 bg-ink-900/80 backdrop-blur-xl">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-jade rounded-lg flex items-center justify-center">
-            <span className="font-heading font-bold text-ink-900 text-sm">DP</span>
-          </div>
-          <span className="font-heading font-semibold text-white text-lg tracking-tight">DebtPadi</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/debtpadi.png" alt="DebtPadi" width={110} height={32} className="h-8 w-auto object-contain" priority />
+        </Link>
         <div className="hidden md:flex items-center gap-8">
           <Link href="#features" className="text-ink-300 hover:text-white transition-colors text-sm font-medium">Features</Link>
           <Link href="#pricing" className="text-ink-300 hover:text-white transition-colors text-sm font-medium">Pricing</Link>
           <Link href="#how-it-works" className="text-ink-300 hover:text-white transition-colors text-sm font-medium">How it works</Link>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/auth/signin" className="text-ink-300 hover:text-white transition-colors text-sm font-medium px-4 py-2">
+          <button
+            onClick={() => navigate("nav-signin", "/auth/signin")}
+            className="text-ink-300 hover:text-white transition-colors text-sm font-medium px-4 py-2 flex items-center gap-2"
+            disabled={!!loadingKey}
+          >
+            {loadingKey === "nav-signin" ? <Spinner /> : null}
             Sign in
-          </Link>
-          <Link href="/auth/signup" className="bg-jade hover:bg-jade-400 text-ink-900 font-semibold text-sm px-5 py-2.5 rounded-lg transition-all hover:shadow-lg hover:shadow-jade/20">
+          </button>
+          <button
+            onClick={() => navigate("nav-signup", "/auth/signup")}
+            disabled={!!loadingKey}
+            className="flex items-center gap-2 bg-jade hover:bg-jade-400 text-ink-900 font-semibold text-sm px-5 py-2.5 rounded-lg transition-all hover:shadow-lg hover:shadow-jade/20 disabled:opacity-80"
+          >
+            {loadingKey === "nav-signup" ? <Spinner /> : null}
             Start free
-          </Link>
+          </button>
         </div>
       </nav>
 
@@ -55,14 +77,29 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-up delay-300">
-            <Link href="/auth/signup" className="group flex items-center gap-3 bg-jade hover:bg-jade-400 text-ink-900 font-bold text-base px-8 py-4 rounded-xl transition-all hover:shadow-2xl hover:shadow-jade/30 w-full sm:w-auto justify-center">
-              Start tracking for free
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link href="/auth/signin" className="flex items-center gap-2 text-ink-300 hover:text-white transition-colors font-medium text-base px-6 py-4">
+            <button
+              onClick={() => navigate("hero-signup", "/auth/signup")}
+              disabled={!!loadingKey}
+              className="group flex items-center gap-3 bg-jade hover:bg-jade-400 text-ink-900 font-bold text-base px-8 py-4 rounded-xl transition-all hover:shadow-2xl hover:shadow-jade/30 w-full sm:w-auto justify-center disabled:opacity-80"
+            >
+              {loadingKey === "hero-signup" ? (
+                <Spinner />
+              ) : (
+                <>
+                  Start tracking for free
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => navigate("hero-signin", "/auth/signin")}
+              disabled={!!loadingKey}
+              className="flex items-center gap-2 text-ink-300 hover:text-white transition-colors font-medium text-base px-6 py-4"
+            >
+              {loadingKey === "hero-signin" ? <Spinner /> : null}
               Already have an account? Sign in
-              <ChevronRight size={16} />
-            </Link>
+              {loadingKey !== "hero-signin" && <ChevronRight size={16} />}
+            </button>
           </div>
 
           <p className="text-ink-400 text-sm mt-6 animate-fade-up delay-400">
@@ -218,7 +255,7 @@ export default function LandingPage() {
               {
                 step: "02",
                 title: "Track what they owe",
-                desc: "Their debt appears on your dashboard with the date it was added and when it&apos;s due.",
+                desc: "Their debt appears on your dashboard with the date it was added and when it's due.",
               },
               {
                 step: "03",
@@ -237,7 +274,7 @@ export default function LandingPage() {
                 </div>
                 <div className="pt-2">
                   <h3 className="font-heading font-semibold text-white text-xl mb-2">{s.title}</h3>
-                  <p className="text-ink-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: s.desc }} />
+                  <p className="text-ink-400 leading-relaxed">{s.desc}</p>
                 </div>
               </div>
             ))}
@@ -274,9 +311,14 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/auth/signup" className="block text-center border border-white/20 text-white font-semibold py-3 rounded-xl hover:bg-white/5 transition-colors">
+              <button
+                onClick={() => navigate("pricing-free", "/auth/signup")}
+                disabled={!!loadingKey}
+                className="w-full flex items-center justify-center gap-2 border border-white/20 text-white font-semibold py-3 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-80"
+              >
+                {loadingKey === "pricing-free" ? <Spinner /> : null}
                 Get started free
-              </Link>
+              </button>
             </div>
 
             {/* Pro */}
@@ -304,9 +346,14 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/auth/signup" className="block text-center bg-ink-900 text-jade font-bold py-3 rounded-xl hover:bg-ink-800 transition-colors">
+              <button
+                onClick={() => navigate("pricing-pro", "/auth/signup")}
+                disabled={!!loadingKey}
+                className="w-full flex items-center justify-center gap-2 bg-ink-900 text-jade font-bold py-3 rounded-xl hover:bg-ink-800 transition-colors disabled:opacity-80"
+              >
+                {loadingKey === "pricing-pro" ? <Spinner /> : null}
                 Start 14-day free trial
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -331,7 +378,7 @@ export default function LandingPage() {
               {
                 name: "Chinedu Okafor",
                 biz: "Electronics Shop, Onitsha",
-                text: "Before DebtPadi, I was always guessing who owed me and how much. Some customers delayed payments for months. Now I track every sale and debt clearly, and I’ve been able to recover more money without stress."
+                text: "Before DebtPadi, I was always guessing who owed me and how much. Some customers delayed payments for months. Now I track every sale and debt clearly, and I've been able to recover more money without stress."
               }
             ].map((t, i) => (
               <div key={i} className="bg-ink-800 border border-white/5 rounded-2xl p-6">
@@ -355,27 +402,34 @@ export default function LandingPage() {
           <p className="text-ink-400 text-lg mb-10 leading-relaxed">
             Join thousands of Nigerian business owners who are collecting their money faster with DebtPadi.
           </p>
-          <Link href="/auth/signup" className="group inline-flex items-center gap-3 bg-jade hover:bg-jade-400 text-ink-900 font-bold text-lg px-10 py-5 rounded-xl transition-all hover:shadow-2xl hover:shadow-jade/30">
-            Create your free account
-            <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
+          <button
+            onClick={() => navigate("cta-signup", "/auth/signup")}
+            disabled={!!loadingKey}
+            className="group inline-flex items-center gap-3 bg-jade hover:bg-jade-400 text-ink-900 font-bold text-lg px-10 py-5 rounded-xl transition-all hover:shadow-2xl hover:shadow-jade/30 disabled:opacity-80"
+          >
+            {loadingKey === "cta-signup" ? (
+              <Spinner />
+            ) : (
+              <>
+                Create your free account
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+          </button>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-jade rounded-lg flex items-center justify-center">
-              <span className="font-heading font-bold text-ink-900 text-xs">DP</span>
-            </div>
-            <span className="font-heading font-semibold text-white">DebtPadi</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/debtpadi.png" alt="DebtPadi" width={100} height={28} className="h-7 w-auto object-contain" />
+          </Link>
           <p className="text-ink-500 text-sm">© 2026 DebtPadi. Built with love for Nigerian SMEs.</p>
           <div className="flex gap-6">
-            <Link href="#" className="text-ink-500 hover:text-white transition-colors text-sm">Privacy</Link>
-            <Link href="#" className="text-ink-500 hover:text-white transition-colors text-sm">Terms</Link>
-            <Link href="#" className="text-ink-500 hover:text-white transition-colors text-sm">Contact</Link>
+            <Link href="privacy-policy" className="text-ink-500 hover:text-white transition-colors text-sm">Privacy</Link>
+            <Link href="terms-of-service" className="text-ink-500 hover:text-white transition-colors text-sm">Terms</Link>
+            <Link href="contact" className="text-ink-500 hover:text-white transition-colors text-sm">Contact</Link>
           </div>
         </div>
       </footer>
