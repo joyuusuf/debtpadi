@@ -22,7 +22,7 @@ const SECTIONS = [
       },
       {
         heading: "Business & Customer Data",
-        body: "To power the core features of DebtPadi, we store the debt records, customer names, phone numbers, and transaction histories that you enter into the app. This data belongs to you — we are simply the custodians of it.",
+        body: "To power the core features of DebtPadi, we store the debt records, customer names, phone numbers, and transaction histories that you enter into the app. This data belongs to you; we are simply the custodians of it.",
       },
       {
         heading: "Device & Usage Data",
@@ -36,7 +36,7 @@ const SECTIONS = [
     content: [
       {
         heading: "To Provide the Service",
-        body: "Your data is primarily used to operate DebtPadi — storing your records, processing your account, and delivering features like WhatsApp reminders and PDF exports.",
+        body: "Your data is primarily used to operate DebtPadi; storing your records, processing your account, and delivering features like WhatsApp reminders and PDF exports.",
       },
       {
         heading: "To Improve the Product",
@@ -261,7 +261,7 @@ export default function PrivacyPage() {
                   DebtPadi stores your business data to power the app. We never sell it.
                   We secure it with industry-standard encryption. You can delete it any time.
                   We only share data with trusted providers needed to run the service, and only
-                  under contractual protection. That is the whole story — everything below is just the legal detail.
+                  under contractual protection. That is the whole story; everything below is just the legal detail.
                 </p>
               </div>
 
