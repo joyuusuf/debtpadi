@@ -22,7 +22,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-ink-900 text-white overflow-x-hidden">
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between border-b border-white/5 bg-ink-900/80 backdrop-blur-xl">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 bg-white">
           <Image src="/debtpadi.png" alt="DebtPadi" width={110} height={32} className="h-8 w-auto object-contain" priority />
         </Link>
         <div className="hidden md:flex items-center gap-8">
@@ -422,7 +422,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-white/5 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 bg-white">
             <Image src="/debtpadi.png" alt="DebtPadi" width={100} height={28} className="h-7 w-auto object-contain" />
           </Link>
           <p className="text-ink-500 text-sm">© 2026 DebtPadi. Built with love for Nigerian SMEs.</p>
