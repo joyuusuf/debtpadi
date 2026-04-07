@@ -328,7 +328,7 @@ export default function LandingPage() {
               </div>
               <div className="mb-6">
                 <p className="text-jade-800 text-sm font-medium mb-1">Pro</p>
-                <p className="font-heading text-4xl font-bold text-ink-900">₦3,500<span className="text-lg font-normal text-jade-800">/month</span></p>
+                <p className="font-heading text-4xl font-bold text-ink-900">₦30,000<span className="text-lg font-normal text-jade-800">/month</span></p>
               </div>
               <ul className="space-y-3 mb-8">
                 {[
