@@ -410,7 +410,7 @@ function EvidencePanel({
               <p className="text-amber-700 text-xs font-semibold uppercase tracking-wide mb-1">What is debt evidence?</p>
               <p className="text-amber-700/80 text-xs leading-relaxed">
                 Upload receipts, photos of goods delivered, written agreements, or screenshots of payment conversations. 
-                This protects you in case of disputes — no more "I never collected that" from customers.
+                This protects you in case of disputes - no more "I never collected that" from customers.
               </p>
             </div>
 

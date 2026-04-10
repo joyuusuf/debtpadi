@@ -536,10 +536,10 @@ export default function ReportsPage() {
               </div>
               <h2 className="font-heading font-bold text-2xl text-ink-900 mb-2">Pro Feature</h2>
               <p className="text-ink-500 text-sm mb-6 leading-relaxed">
-                PDF export and advanced reports are available on the Pro plan. Upgrade for just ₦3,500/month.
+                PDF export and advanced reports are available on the Pro plan. Upgrade for just ₦30,000/month.
               </p>
               <button className="w-full bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3.5 rounded-xl transition-all hover:shadow-lg mb-3">
-                Upgrade to Pro — ₦30000/mo
+                Upgrade to Pro - ₦30,000/mo
               </button>
               <button onClick={() => setShowUpgrade(false)} className="w-full text-ink-400 hover:text-ink-600 text-sm transition-colors py-2">
                 Maybe later
