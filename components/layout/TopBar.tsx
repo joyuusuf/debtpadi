@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Search, Menu, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-
+import { useAvatar } from "@/context/AvatarContext";
 const nav = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Debtors", href: "/debtors" },
@@ -16,7 +16,13 @@ const nav = [
 
 export default function TopBar({ title }: { title?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { avatar, setAvatar } = useAvatar();
   const pathname = usePathname();
+
+  useEffect(() => {
+    const saved = localStorage.getItem("debtpadi_avatar");
+    if (saved) setAvatar(saved);
+  }, []);
 
   return (
     <>
@@ -63,10 +69,12 @@ export default function TopBar({ title }: { title?: string }) {
           </button>
 
           {/* Avatar */}
-          <div className="w-9 h-9 rounded-xl bg-jade flex items-center justify-center">
-            <span className="font-heading font-bold text-ink-900 text-sm">
-              TF
-            </span>
+          <div className="w-9 h-9 rounded-xl bg-jade flex items-center justify-center overflow-hidden">
+            {avatar ? (
+              <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-heading font-bold text-ink-900 text-sm">TF</span>
+            )}
           </div>
         </div>
       </header>

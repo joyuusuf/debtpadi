@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AvatarProvider } from "@/context/AvatarContext";
 
 export const metadata: Metadata = {
   title: "DebtPadi - Smart Credit Tracker for Nigerian Businesses",
@@ -17,7 +18,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><AvatarProvider>{children}</AvatarProvider></body>
     </html>
   );
 }

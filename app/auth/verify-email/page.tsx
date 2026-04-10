@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, RotateCcw, CheckCircle } from "lucide-react";
 
 export default function VerifyEmailPage() {
@@ -91,15 +92,19 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen bg-ink-900 flex">
 
       {/* ── Left — Form ───────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 md:px-12 py-10 min-w-0">
+      <div className="flex-1 flex flex-col items-start justify-left px-6 md:px-12 py-10 min-w-0">
 
         {/* Logo — pinned to top-left on desktop, inline on mobile */}
-        <div className="w-full max-w-sm mb-10">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-8 h-8 bg-jade rounded-lg flex items-center justify-center">
-              <span className="font-heading font-bold text-ink-900 text-sm">DP</span>
-            </div>
-            <span className="font-heading font-semibold text-white text-lg">DebtPadi</span>
+                <div className="mb-12 w-20 bg-white">
+          <Link href="/" className="inline-flex items-start">
+            <Image
+              src="/debtpadi.png"
+              alt="DebtPadi Logo"
+              width={140}
+              height={40}
+              className="object-contain"
+              priority
+            />
           </Link>
         </div>
 
