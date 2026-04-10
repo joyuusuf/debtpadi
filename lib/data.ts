@@ -11,6 +11,15 @@ export interface Customer {
   createdAt: string;
 }
 
+export interface Evidence {
+  id: string;
+  name: string;
+  type: "image" | "document";
+  url: string;
+  uploadedAt: string;
+  note?: string;
+}
+
 export interface DebtRecord {
   id: string;
   customerId: string;
@@ -22,6 +31,7 @@ export interface DebtRecord {
   createdAt: string;
   status: "pending" | "partial" | "cleared" | "overdue";
   payments: Payment[];
+  evidences: Evidence[];
 }
 
 export interface Payment {
@@ -114,8 +124,9 @@ export const mockDebts: DebtRecord[] = [
     status: "overdue",
     payments: [
       { id: "p1", amount: 7000, date: "2025-12-28", note: "Cash payment" },
-      { id: "p2", amount: 5000, date: "2026-01-05", note: "Transfer" },
+      { id: "p2", amount: 5000, date: "2026-01-05", note: "Transfer" }
     ],
+    evidences: [],
   },
   {
     id: "d2",
@@ -128,8 +139,9 @@ export const mockDebts: DebtRecord[] = [
     createdAt: "2026-01-05",
     status: "partial",
     payments: [
-      { id: "p3", amount: 8500, date: "2025-01-15", note: "Part payment" },
+      { id: "p3", amount: 8500, date: "2025-01-15", note: "Part payment" }
     ],
+    evidences: [],
   },
   {
     id: "d3",
@@ -143,8 +155,9 @@ export const mockDebts: DebtRecord[] = [
     status: "cleared",
     payments: [
       { id: "p4", amount: 3200, date: "2025-01-10", note: "First payment" },
-      { id: "p5", amount: 4000, date: "2025-01-18", note: "Final payment" },
+      { id: "p5", amount: 4000, date: "2025-01-18", note: "Final payment" }
     ],
+    evidences: [],
   },
   {
     id: "d4",
@@ -157,6 +170,7 @@ export const mockDebts: DebtRecord[] = [
     createdAt: "2025-12-15",
     status: "overdue",
     payments: [],
+    evidences: [],
   },
   {
     id: "d5",
@@ -169,8 +183,9 @@ export const mockDebts: DebtRecord[] = [
     createdAt: "2026-01-10",
     status: "partial",
     payments: [
-      { id: "p6", amount: 5000, date: "2026-01-20", note: "Cash" },
+      { id: "p6", amount: 5000, date: "2026-01-20", note: "Cash" }
     ],
+    evidences: [],
   },
   {
     id: "d6",
@@ -184,8 +199,9 @@ export const mockDebts: DebtRecord[] = [
     status: "overdue",
     payments: [
       { id: "p7", amount: 10000, date: "2025-12-10", note: "Cash" },
-      { id: "p8", amount: 10000, date: "2025-12-20", note: "Transfer" },
+      { id: "p8", amount: 10000, date: "2025-12-20", note: "Transfer" }
     ],
+    evidences: [],
   },
 ];
 

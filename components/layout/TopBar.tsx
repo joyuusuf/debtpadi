@@ -65,7 +65,7 @@ export default function TopBar({ title }: { title?: string }) {
           {/* Avatar */}
           <div className="w-9 h-9 rounded-xl bg-jade flex items-center justify-center">
             <span className="font-heading font-bold text-ink-900 text-sm">
-              MC
+              TF
             </span>
           </div>
         </div>
