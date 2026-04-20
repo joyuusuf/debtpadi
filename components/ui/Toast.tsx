@@ -41,9 +41,9 @@ export function Toast({ message, type, onClose }: ToastProps) {
             >
                 {/* Icon */}
                 {type === "success" ? (
-                    <CheckCircle size={18} className="text-jade flex-shrink-0" />
+                    <CheckCircle size={18} className="text-jade cursor-pointer flex-shrink-0" />
                 ) : (
-                    <XCircle size={18} className="text-red-400 flex-shrink-0" />
+                    <XCircle size={18} className="text-red-400 cursor-pointer flex-shrink-0" />
                 )}
 
                 {/* Message */}
