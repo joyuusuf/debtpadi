@@ -516,7 +516,7 @@ export default function SignUpPage() {
       {/* Left — Form */}
       <div className="flex-1 flex flex-col justify-center px-6 md:px-16 py-12">
         {/* Logo */}
-        <div className="mb-12">
+        <div className="mb-12 bg-white w-32 h-8">
           <Link href="/" className="inline-flex items-center">
             <Image
               src="/debtpadi.png"

@@ -45,7 +45,7 @@ export default function SignInPage() {
       {/* Left — Form */}
       <div className="flex-1 flex flex-col justify-center px-6 md:px-16 py-12">
         {/* Logo */}
-        <div className="mb-12 w-20 bg-white">
+        <div className="mb-12 w-32 h-8 bg-white">
           <Link href="/" className="inline-flex items-center">
             <Image
               src="/debtpadi.png"

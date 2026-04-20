@@ -160,7 +160,7 @@ export default function VerifyEmailPage() {
       {/* Left — Form */}
       <div className="flex-1 flex flex-col items-start justify-left px-6 md:px-12 py-10 min-w-0">
         {/* Logo */}
-        <div className="mb-12 w-20 bg-white">
+        <div className="mb-12 w-32 h-8 bg-white">
           <Link href="/" className="inline-flex items-start">
             <Image
               src="/debtpadi.png"
