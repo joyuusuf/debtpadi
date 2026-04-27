@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import { Toast } from "@/components/ui/Toast";
 
 const API_BASE = "http://localhost:5000/api/auth";
 
@@ -11,12 +12,14 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const res = await fetch(`${API_BASE}/login`, {
@@ -36,7 +39,7 @@ export default function SignInPage() {
       // Login successful (token is set in httpOnly cookie by backend)
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err.message);
+      setToast({ message: err.message, type: "error" });
     } finally {
       setLoading(false);
     }
@@ -47,7 +50,7 @@ export default function SignInPage() {
       {/* Left — Form */}
       <div className="flex-1 flex flex-col justify-center px-6 md:px-16 py-12">
         {/* Logo */}
-        <div className="mb-12 w-20 bg-white">
+        <div className="mb-12 w-32 h-8 bg-white">
           <Link href="/" className="inline-flex items-center">
             <Image
               src="/debtpadi.png"
@@ -67,12 +70,6 @@ export default function SignInPage() {
             </h1>
             <p className="text-ink-400">Sign in to your account to continue</p>
           </div>
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
@@ -152,7 +149,6 @@ export default function SignInPage() {
             </div>
 
             <button className="w-full bg-ink-800 border border-white/10 hover:border-white/20 text-white font-medium py-3.5 rounded-xl transition-all flex items-center justify-center gap-3 text-sm hover:bg-ink-700">
-              {/* Google SVG remains the same */}
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -189,8 +185,97 @@ export default function SignInPage() {
 
       {/* Right Visual — unchanged */}
       <div className="hidden lg:flex flex-1 bg-ink-800 border-l border-white/5 relative overflow-hidden items-center justify-center p-12">
-        {/* ... (your existing right sidebar content) ... */}
+        {/* Background pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle, #00C896 1px, transparent 1px)`,
+            backgroundSize: "32px 32px",
+          }}
+        />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-jade/10 rounded-full blur-[80px]" />
+
+        <div className="relative z-10 max-w-sm">
+          <div className="bg-ink-700 border border-white/10 rounded-2xl p-6 mb-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-full bg-coral-500/20 flex items-center justify-center">
+                <span className="font-heading font-bold text-coral-400 text-sm">
+                  AB
+                </span>
+              </div>
+              <div>
+                <p className="font-semibold text-white text-sm">
+                  Adeola Bakare
+                </p>
+                <p className="text-ink-400 text-xs">08031234567</p>
+              </div>
+              <div className="ml-auto">
+                <span className="badge bg-coral-500/20 text-coral-400 text-xs">
+                  Overdue
+                </span>
+              </div>
+            </div>
+            <div className="bg-ink-800 rounded-xl p-4">
+              <p className="text-ink-400 text-xs mb-1">Total Owed</p>
+              <p className="font-heading font-bold text-2xl text-white">
+                ₦45,000
+              </p>
+              <div className="mt-3 h-1.5 bg-ink-600 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-jade rounded-full"
+                  style={{ width: "27%" }}
+                />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-ink-500 text-xs">₦12,000 paid</span>
+                <span className="text-coral-400 text-xs">27%</span>
+              </div>
+            </div>
+            <button className="w-full mt-4 bg-jade/10 hover:bg-jade/20 text-jade font-semibold text-sm py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+              </svg>
+              Send WhatsApp Reminder
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-jade/10 border border-jade/20 rounded-xl p-4">
+              <p className="text-jade-300 text-xs mb-1">Total Owed</p>
+              <p className="font-heading font-bold text-white text-xl">
+                ₦167.5k
+              </p>
+            </div>
+            <div className="bg-coral-500/10 border border-coral-500/20 rounded-xl p-4">
+              <p className="text-coral-300 text-xs mb-1">Overdue</p>
+              <p className="font-heading font-bold text-white text-xl">
+                3 debts
+              </p>
+            </div>
+          </div>
+
+          <p className="text-center text-ink-500 text-xs mt-6 leading-relaxed">
+            &ldquo;I collected ₦80,000 in the first week after signing
+            up.&rdquo;
+            <br />
+            <span className="text-jade">- Titilayo, Ibadan</span>
+          </p>
+        </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
