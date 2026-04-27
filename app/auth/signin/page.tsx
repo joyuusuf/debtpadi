@@ -31,6 +31,8 @@ export default function SignInPage() {
         throw new Error(data.error || "Invalid email or password");
       }
 
+      localStorage.setItem("debtpadi_user", JSON.stringify(data.user));
+
       // Login successful (token is set in httpOnly cookie by backend)
       window.location.href = "/dashboard";
     } catch (err: any) {

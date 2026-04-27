@@ -203,28 +203,44 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [canResend, setCanResend] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
-    setCanResend(false);
-    setResendTimer(59);
-    const countdown = setInterval(() => {
-      setResendTimer((s) => {
-        if (s <= 1) {
-          clearInterval(countdown);
-          setCanResend(true);
-          return 0;
-        }
-        return s - 1;
+    setLoading(true);
+    try {
+      await fetch(`http://localhost:5000/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
-    }, 1000);
+    } catch {
+      // silent — always show success
+    } finally {
+      setLoading(false);
+      setSubmitted(true);
+      // Start the resend countdown immediately after submit
+      setCanResend(false);
+      setResendTimer(59);
+      const countdown = setInterval(() => {
+        setResendTimer((s) => {
+          if (s <= 1) {
+            clearInterval(countdown);
+            setCanResend(true);
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+    }
   }
 
-  function handleResend() {
-    if (!canResend) return;
+  async function handleResend() {
+    if (!canResend || !email) return;
+
     setCanResend(false);
     setResendTimer(59);
+
     const countdown = setInterval(() => {
       setResendTimer((s) => {
         if (s <= 1) {
@@ -235,6 +251,29 @@ export default function ForgotPasswordPage() {
         return s - 1;
       });
     }, 1000);
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/auth/forgot-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.success) {
+        clearInterval(countdown);
+        setResendTimer(0);
+        setCanResend(true);
+      }
+    } catch {
+      clearInterval(countdown);
+      setResendTimer(0);
+      setCanResend(true);
+    }
   }
 
   return (
@@ -269,22 +308,39 @@ export default function ForgotPasswordPage() {
             <>
               {/* Icon */}
               <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center mb-6 animate-fade-up">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F5A623" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#F5A623"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               </div>
 
               <div className="mb-8 animate-fade-up delay-100">
-                <h1 className="font-heading text-3xl font-bold text-white mb-2">Forgot password?</h1>
+                <h1 className="font-heading text-3xl font-bold text-white mb-2">
+                  Forgot password?
+                </h1>
                 <p className="text-ink-400 leading-relaxed">
-                  No worries. Enter the email address on your account and we&apos;ll send you a reset link.
+                  No worries. Enter the email address on your account and
+                  we&apos;ll send you a reset link.
                 </p>
               </div>
 
-              <form className="space-y-5 animate-fade-up delay-200" onSubmit={handleSubmit}>
+              <form
+                className="space-y-5 animate-fade-up delay-200"
+                onSubmit={handleSubmit}
+              >
                 <div>
-                  <label className="block text-ink-300 text-sm font-medium mb-2">Email address</label>
+                  <label className="block text-ink-300 text-sm font-medium mb-2">
+                    Email address
+                  </label>
                   <input
                     type="email"
                     required
@@ -297,16 +353,25 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="submit"
-                  className="w-full group bg-jade hover:bg-jade-400 text-ink-900 font-bold py-4 rounded-xl transition-all hover:shadow-xl hover:shadow-jade/20 flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="w-full group bg-jade hover:bg-jade-400 text-ink-900 font-bold py-4 rounded-xl transition-all hover:shadow-xl hover:shadow-jade/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Send reset link
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  {loading ? "Sending..." : "Send reset link"}
+                  {!loading && (
+                    <ArrowRight
+                      size={18}
+                      className="group-hover:translate-x-1 transition-transform"
+                    />
+                  )}
                 </button>
               </form>
 
               <p className="text-center text-ink-500 text-sm mt-8 animate-fade-up delay-300">
                 Remembered your password?{" "}
-                <Link href="/auth/signin" className="text-jade hover:text-jade-400 font-medium transition-colors">
+                <Link
+                  href="/auth/signin"
+                  className="text-jade hover:text-jade-400 font-medium transition-colors"
+                >
                   Sign in
                 </Link>
               </p>
@@ -314,18 +379,31 @@ export default function ForgotPasswordPage() {
           ) : (
             <div className="animate-fade-up">
               <div className="w-14 h-14 bg-jade/10 border border-jade/20 rounded-2xl flex items-center justify-center mb-6">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00C896" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#00C896"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <rect x="2" y="4" width="20" height="16" rx="2" />
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                 </svg>
               </div>
 
-              <h1 className="font-heading text-3xl font-bold text-white mb-2">Check your email</h1>
+              <h1 className="font-heading text-3xl font-bold text-white mb-2">
+                Check your email
+              </h1>
               <p className="text-ink-400 leading-relaxed mb-2">
-                We sent a password reset link to <span className="text-white font-medium">{email}</span>.
+                We sent a password reset link to{" "}
+                <span className="text-white font-medium">{email}</span>.
               </p>
               <p className="text-ink-500 text-sm mb-8">
-                The link expires in 30 minutes. If you don&apos;t see the email, check your spam folder.
+                The link expires in 30 minutes. If you don&apos;t see the email,
+                check your spam folder.
               </p>
 
               <Link
@@ -333,15 +411,23 @@ export default function ForgotPasswordPage() {
                 className="group w-full flex items-center justify-center gap-2 bg-jade hover:bg-jade-400 text-ink-900 font-bold py-4 rounded-xl transition-all hover:shadow-xl hover:shadow-jade/20 mb-4"
               >
                 Open reset link
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                <ArrowRight
+                  size={18}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
               </Link>
 
               <div className="flex items-center justify-between p-4 bg-ink-800 border border-white/5 rounded-xl">
                 <div>
-                  <p className="text-ink-300 text-sm font-medium">Didn&apos;t receive it?</p>
+                  <p className="text-ink-300 text-sm font-medium">
+                    Didn&apos;t receive it?
+                  </p>
                   {!canResend && resendTimer > 0 && (
                     <p className="text-ink-500 text-xs mt-0.5">
-                      Resend in <span className="text-jade font-mono">{String(resendTimer).padStart(2, "0")}s</span>
+                      Resend in{" "}
+                      <span className="text-jade font-mono">
+                        {String(resendTimer).padStart(2, "0")}s
+                      </span>
                     </p>
                   )}
                 </div>
@@ -349,10 +435,15 @@ export default function ForgotPasswordPage() {
                   onClick={handleResend}
                   disabled={!canResend}
                   className={`flex items-center gap-1.5 text-sm font-semibold transition-all ${
-                    canResend ? "text-jade hover:text-jade-400 cursor-pointer" : "text-ink-600 cursor-not-allowed"
+                    canResend
+                      ? "text-jade hover:text-jade-400 cursor-pointer"
+                      : "text-ink-600 cursor-not-allowed"
                   }`}
                 >
-                  <RotateCcw size={14} className={canResend ? "" : "opacity-40"} />
+                  <RotateCcw
+                    size={14}
+                    className={canResend ? "" : "opacity-40"}
+                  />
                   Resend link
                 </button>
               </div>
@@ -363,30 +454,48 @@ export default function ForgotPasswordPage() {
 
       {/* Right — Visual */}
       <div className="hidden lg:flex flex-1 bg-ink-800 border-l border-white/5 relative overflow-hidden items-center justify-center p-12">
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `radial-gradient(circle, #00C896 1px, transparent 1px)`,
-          backgroundSize: "32px 32px",
-        }} />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle, #00C896 1px, transparent 1px)`,
+            backgroundSize: "32px 32px",
+          }}
+        />
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-jade/10 rounded-full blur-[80px]" />
 
         <div className="relative z-10 max-w-xs text-center">
           <div className="bg-ink-700 border border-white/10 rounded-2xl p-8 mb-6">
             <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5A623" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#F5A623"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
-            <h3 className="font-heading font-bold text-white text-lg mb-2">Secure reset</h3>
+            <h3 className="font-heading font-bold text-white text-lg mb-2">
+              Secure reset
+            </h3>
             <p className="text-ink-400 text-sm leading-relaxed">
-              Your reset link is encrypted and expires automatically after 30 minutes for your security.
+              Your reset link is encrypted and expires automatically after 30
+              minutes for your security.
             </p>
           </div>
 
           <div className="bg-jade/5 border border-jade/10 rounded-xl p-4">
-            <p className="text-jade text-xs font-semibold uppercase tracking-wide mb-2">Security tip</p>
+            <p className="text-jade text-xs font-semibold uppercase tracking-wide mb-2">
+              Security tip
+            </p>
             <p className="text-ink-400 text-xs leading-relaxed">
-              We will never ask for your password via phone call or WhatsApp. Only reset through our official link.
+              We will never ask for your password via phone call or WhatsApp.
+              Only reset through our official link.
             </p>
           </div>
         </div>
