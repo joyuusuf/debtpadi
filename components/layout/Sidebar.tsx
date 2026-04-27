@@ -27,6 +27,13 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
+  useEffect(() => {
+    const token = localStorage.getItem("debtpadi_token");
+    if (!token && pathname.startsWith("/dashboard")) {
+      router.replace("/auth/signin");
+    }
+  }, [pathname, router]);
+
   async function handleSignOut() {
     try {
       await fetch(`http://localhost:5000/api/auth/logout`, {
@@ -34,9 +41,13 @@ export default function Sidebar() {
         credentials: "include",
       });
     } catch {
-      // cookie will expire naturally, proceed anyway
+      // Ignore errors
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem("debtpadi_user");
+      localStorage.removeItem("debtpadi_token");
+      router.push("/auth/signin");
     }
-    router.push("/auth/signin");
   }
 
   return (

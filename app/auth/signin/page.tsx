@@ -17,6 +17,7 @@ export default function SignInPage() {
     type: "success" | "error";
   } | null>(null);
 
+  // In SignInPage handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -26,6 +27,7 @@ export default function SignInPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include", // ✅ Critical: sends/receives cookies
       });
 
       const data = await res.json();
@@ -34,9 +36,13 @@ export default function SignInPage() {
         throw new Error(data.error || "Invalid email or password");
       }
 
-      localStorage.setItem("debtpadi_user", JSON.stringify(data.user));
+      // ✅ Backend returns: { success: true, token: "jwt...", user: {decoded user} }
+      console.log("Login response:", data); // Debug
 
-      // Login successful (token is set in httpOnly cookie by backend)
+      // Store SEPARATELY
+      localStorage.setItem("debtpadi_user", JSON.stringify(data.user)); // ✅ USER OBJECT
+      localStorage.setItem("debtpadi_token", data.token); // ✅ RAW JWT
+
       window.location.href = "/dashboard";
     } catch (err: any) {
       setToast({ message: err.message, type: "error" });
@@ -44,7 +50,6 @@ export default function SignInPage() {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-ink-900 flex">
       {/* Left — Form */}

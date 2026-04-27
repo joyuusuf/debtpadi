@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AvatarProvider } from "@/context/AvatarContext";
+import { AuthProvider } from "../context/AuthContext"; // ✅ Import AuthProvider
 
 export const metadata: Metadata = {
   title: "DebtPadi - Smart Credit Tracker for Nigerian Businesses",
-  description: "Track who owes you, send reminders, and get paid faster. Built for Nigerian small business owners.",
+  description:
+    "Track who owes you, send reminders, and get paid faster. Built for Nigerian small business owners.",
 };
 
 export default function RootLayout({
@@ -18,7 +20,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
       </head>
-      <body className="antialiased"><AvatarProvider>{children}</AvatarProvider></body>
+      <body className="antialiased">
+        {/* ✅ Wrap with both providers - order matters! */}
+        <AuthProvider>
+          <AvatarProvider>{children}</AvatarProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }
