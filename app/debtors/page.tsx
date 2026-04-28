@@ -12,7 +12,8 @@ import {
   DebtRecord, Evidence,
 } from "@/lib/data";
 import TopBar from "@/components/layout/TopBar";
-
+import PageSkeleton from "@/components/debtorsLayout/debtorsSkeleton";
+import { useWhatsappReminder } from "@/components/aiReminder/aiReminder";
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function computeStatus(paid: number, total: number, due: string): DebtRecord["status"] {
@@ -27,44 +28,6 @@ const EMPTY_FORM = {
   amount: "", amountPaid: "", dueDate: "",
 };
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
-
-function Bone({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
-  return <div className={`bg-ink-100 rounded-lg animate-pulse ${className}`} style={style} />;
-}
-
-function PageSkeleton() {
-  return (
-    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div className="flex-1 space-y-2"><Bone className="h-7 w-32" /><Bone className="h-4 w-64" /></div>
-        <Bone className="h-11 w-full sm:w-40 rounded-xl" />
-      </div>
-      <Bone className="h-11 w-full rounded-xl mb-4" />
-      <div className="flex gap-2 mb-5">
-        {[64, 80, 72, 72, 72].map((w, i) => (<Bone key={i} className="h-9 rounded-xl flex-shrink-0" style={{ width: w }} />))}
-      </div>
-      <div className="hidden sm:block bg-white border border-ink-100 rounded-2xl overflow-hidden">
-        <div className="border-b border-ink-100 bg-ink-50/50 flex gap-4 px-5 py-3.5">
-          {[120, 180, 100, 130, 80, 60].map((w, i) => (<Bone key={i} className="h-3 rounded" style={{ width: w }} />))}
-        </div>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-5 py-4 border-b border-ink-50">
-            <div className="flex items-center gap-3 flex-[1.4]">
-              <Bone className="w-9 h-9 rounded-xl flex-shrink-0" />
-              <div className="space-y-1.5"><Bone className="h-3 w-28" /><Bone className="h-2.5 w-20" /></div>
-            </div>
-            <Bone className="h-3 flex-[1.8] max-w-[200px]" />
-            <div className="flex-1 space-y-1.5"><Bone className="h-3.5 w-24" /><Bone className="h-2.5 w-16" /></div>
-            <div className="flex-1 space-y-1.5"><Bone className="h-2 w-12" /><Bone className="h-1.5 w-32 rounded-full" /></div>
-            <Bone className="h-6 w-20 rounded-full flex-shrink-0" />
-            <div className="flex gap-1.5"><Bone className="h-8 w-8 rounded-lg" /><Bone className="h-8 w-8 rounded-lg" /></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ─── Action dropdown ──────────────────────────────────────────────────────────
 
@@ -106,13 +69,170 @@ function ActionMenu({ onEdit, onDelete, onEvidence }: { onEdit: () => void; onDe
 
 // ─── Reminder modal (WhatsApp + SMS) ─────────────────────────────────────────
 
+// function ReminderModal({ debt, onClose }: { debt: DebtRecord; onClose: () => void }) {
+//   const outstanding = debt.amount - debt.amountPaid;
+//   const evCount = debt.evidences?.length || 0;
+//   const hasEvidence = evCount > 0;
+
+//   const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
+//   const [msg, setMsg] = useState(defaultMsg);
+
+//   function sendWhatsApp() {
+//     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+//     onClose();
+//   }
+
+//   function sendSMS() {
+//     window.open(`sms:?body=${encodeURIComponent(msg)}`, "_blank");
+//     onClose();
+//   }
+
+//   return (
+//     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+//       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+
+//         {/* Header */}
+//         <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+//           <div>
+//             <h2 className="font-heading font-bold text-lg text-ink-900">Send Reminder</h2>
+//             <p className="text-ink-400 text-xs mt-0.5">
+//               To <span className="font-semibold text-ink-600">{debt.customerName}</span> · {formatNaira(outstanding)} outstanding
+//             </p>
+//           </div>
+//           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors">
+//             <X size={16} />
+//           </button>
+//         </div>
+
+//         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+
+//           {/* Evidence attachment status */}
+//           {hasEvidence ? (
+//             <div className="bg-jade/5 border border-jade/20 rounded-xl p-4">
+//               <div className="flex items-start gap-3">
+//                 <div className="w-8 h-8 bg-jade/15 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+//                   <Paperclip size={15} className="text-jade" />
+//                 </div>
+//                 <div className="flex-1 min-w-0">
+//                   <p className="text-jade-700 text-sm font-semibold">
+//                     {evCount} evidence file{evCount !== 1 ? "s" : ""} attached
+//                   </p>
+//                   <p className="text-jade-700/70 text-xs mt-0.5 leading-relaxed">
+//                     A secure link to your uploaded evidence will be included automatically when you connect your backend. The customer will be able to view the proof directly.
+//                   </p>
+//                   <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 bg-jade/10 rounded-lg w-fit">
+//                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+//                     <p className="text-amber-600 text-[10px] font-semibold uppercase tracking-wide">Pending backend connection</p>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           ) : (
+//             <div className="bg-ink-50 border border-ink-100 rounded-xl p-4 flex items-start gap-3">
+//               <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+//                 <Paperclip size={15} className="text-ink-400" />
+//               </div>
+//               <div>
+//                 <p className="text-ink-600 text-sm font-semibold">No evidence uploaded</p>
+//                 <p className="text-ink-400 text-xs mt-0.5 leading-relaxed">
+//                   Upload a receipt or photo to this debt record first. A link to the evidence will be sent automatically with your reminder once the backend is connected.
+//                 </p>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Message editor */}
+//           <div>
+//             <div className="flex items-center justify-between mb-2">
+//               <label className="text-ink-600 text-sm font-medium">Message</label>
+//               {hasEvidence && (
+//                 <span className="text-[10px] text-jade font-semibold bg-jade/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+//                   <Paperclip size={9} /> Evidence link will be appended
+//                 </span>
+//               )}
+//             </div>
+//             <textarea
+//               value={msg}
+//               onChange={(e) => setMsg(e.target.value)}
+//               rows={4}
+//               className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
+//             />
+//             {hasEvidence && (
+//               <div className="mt-2 px-3 py-2 bg-ink-50 border border-ink-100 rounded-lg">
+//                 <p className="text-ink-400 text-[10px] leading-relaxed">
+//                   <span className="font-semibold text-ink-500">Will also include: </span>
+//                   "Here is your debt record and proof of goods received: [evidence link] — DebtPadi"
+//                 </p>
+//               </div>
+//             )}
+//             <p className="text-ink-400 text-xs mt-1.5">{msg.length} characters · Edit freely before sending</p>
+//           </div>
+
+//           {/* Channel picker */}
+//           <div>
+//             <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
+//             <div className="grid grid-cols-2 gap-3">
+
+//               {/* WhatsApp */}
+//               <button
+//                 onClick={sendWhatsApp}
+//                 className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
+//               >
+//                 <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+//                   <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+//                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+//                   </svg>
+//                 </div>
+//                 <div className="text-center">
+//                   <p className="text-sm font-bold text-ink-800">WhatsApp</p>
+//                   <p className="text-[10px] text-ink-500 mt-0.5">
+//                     {hasEvidence ? "Message + evidence link" : "Opens WhatsApp"}
+//                   </p>
+//                 </div>
+//               </button>
+
+//               {/* SMS */}
+//               <button
+//                 onClick={sendSMS}
+//                 className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 hover:border-ink-300 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
+//               >
+//                 <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+//                   <Phone size={18} className="text-white" />
+//                 </div>
+//                 <div className="text-center">
+//                   <p className="text-sm font-bold text-ink-800">SMS</p>
+//                   <p className="text-[10px] text-ink-500 mt-0.5">
+//                     {hasEvidence ? "Message + evidence link" : "Opens messages app"}
+//                   </p>
+//                 </div>
+//               </button>
+//             </div>
+//           </div>
+
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+// ─── Reminder modal (WhatsApp + SMS) ─────────────────────────────────────────
+
 function ReminderModal({ debt, onClose }: { debt: DebtRecord; onClose: () => void }) {
   const outstanding = debt.amount - debt.amountPaid;
   const evCount = debt.evidences?.length || 0;
   const hasEvidence = evCount > 0;
+  const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
 
   const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
   const [msg, setMsg] = useState(defaultMsg);
+
+  // ── AI reminder hook ──
+  const { generate, message: aiMessage, loading: aiLoading, setMessage: setAiMessage } = useWhatsappReminder();
+
+  // Sync AI-generated message into the editable textarea
+  useEffect(() => {
+    if (aiMessage) setMsg(aiMessage);
+  }, [aiMessage]);
 
   function sendWhatsApp() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
@@ -155,7 +275,7 @@ function ReminderModal({ debt, onClose }: { debt: DebtRecord; onClose: () => voi
                     {evCount} evidence file{evCount !== 1 ? "s" : ""} attached
                   </p>
                   <p className="text-jade-700/70 text-xs mt-0.5 leading-relaxed">
-                    A secure link to your uploaded evidence will be included automatically when you connect your backend. The customer will be able to view the proof directly.
+                    A secure link to your uploaded evidence will be included automatically when you connect your backend.
                   </p>
                   <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 bg-jade/10 rounded-lg w-fit">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -172,16 +292,44 @@ function ReminderModal({ debt, onClose }: { debt: DebtRecord; onClose: () => voi
               <div>
                 <p className="text-ink-600 text-sm font-semibold">No evidence uploaded</p>
                 <p className="text-ink-400 text-xs mt-0.5 leading-relaxed">
-                  Upload a receipt or photo to this debt record first. A link to the evidence will be sent automatically with your reminder once the backend is connected.
+                  Upload a receipt or photo to this debt record first. A link will be sent automatically once the backend is connected.
                 </p>
               </div>
             </div>
           )}
 
+          {/* ── AI Generate button ── */}
+          <div className="flex items-center justify-between">
+            <p className="text-ink-600 text-sm font-medium">Message</p>
+            <button
+              onClick={() =>
+                generate({
+                  customerName: debt.customerName,
+                  amountOwed: outstanding,
+                  daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
+                  businessName: "Titilayo Farms & Agro Supplies",
+                })
+              }
+              disabled={aiLoading}
+              className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {aiLoading ? (
+                <>
+                  <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>✦ AI Generate</>
+              )}
+            </button>
+          </div>
+
           {/* Message editor */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-ink-600 text-sm font-medium">Message</label>
               {hasEvidence && (
                 <span className="text-[10px] text-jade font-semibold bg-jade/10 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Paperclip size={9} /> Evidence link will be appended
