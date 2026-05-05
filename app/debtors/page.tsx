@@ -28,6 +28,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { Toast } from "@/components/ui/Toast";
 import {
   formatNaira,
   getDaysOverdue,
@@ -59,8 +60,6 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-// ─── Action dropdown ──────────────────────────────────────────────────────────
-
 function ActionMenu({
   onPayment,
   onDetail,
@@ -72,34 +71,69 @@ function ActionMenu({
   onDelete: () => void;
   onEvidence: () => void;
 }) {
+  // ✅ Toast state EXACTLY like SignInPage
   const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
   const [pos, setPos] = useState<{
     top?: number;
     bottom?: number;
     right: number;
   }>({ right: 0 });
+
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const MENU_HEIGHT = 190;
 
+  // ✅ Delete handler with toast feedback
+  async function handleDelete() {
+    try {
+      // Your delete API call here
+      // const token = localStorage.getItem("debtpadi_token");
+      // await fetch(`${API_BASE_URL}/debts/${debtId}`, {
+      //   method: "DELETE",
+      //   headers: { Authorization: `Bearer ${token}` }
+      // });
+
+      setToast({
+        message: "Debt deleted successfully",
+        type: "success",
+      });
+    } catch (error) {
+      setToast({
+        message: "Failed to delete debt",
+        type: "error",
+      });
+    }
+
+    setOpen(false);
+    onDelete();
+  }
+
   function openMenu(e: React.MouseEvent) {
     e.stopPropagation();
     if (!triggerRef.current) return;
+
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const right = window.innerWidth - rect.right;
+
     if (spaceBelow < MENU_HEIGHT + 12) {
       setPos({ bottom: window.innerHeight - rect.top + 8, right });
     } else {
       setPos({ top: rect.bottom + 8, right });
     }
-    setOpen((v) => !v);
+    setOpen(true);
   }
 
-  // Close when clicking outside — but NOT during the same click that opened it
+  // Close menu on outside click
   useEffect(() => {
     if (!open) return;
+
     function handlePointerDown(e: PointerEvent) {
       if (
         menuRef.current &&
@@ -110,11 +144,11 @@ function ActionMenu({
         setOpen(false);
       }
     }
-    // Use pointerdown (not mousedown) and add it on next tick so the
-    // current click that opened the menu doesn't immediately close it
+
     const id = window.setTimeout(() => {
       document.addEventListener("pointerdown", handlePointerDown);
     }, 0);
+
     return () => {
       window.clearTimeout(id);
       document.removeEventListener("pointerdown", handlePointerDown);
@@ -127,58 +161,76 @@ function ActionMenu({
   }
 
   return (
-    <div className="relative">
-      <button
-        ref={triggerRef}
-        onClick={openMenu}
-        className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 text-ink-500 hover:text-ink-700 flex items-center justify-center transition-colors"
-      >
-        <MoreVertical size={15} />
-      </button>
-      {open && (
-        <Portal>
-          <div
-            ref={menuRef}
-            className="fixed z-[9999] bg-white border border-ink-100 rounded-xl shadow-xl shadow-ink-900/15 w-52 py-1"
-            style={pos}
-          >
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => pick(onDetail)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+    <>
+      {/* ✅ Menu Trigger */}
+      <div className="relative">
+        <button
+          ref={triggerRef}
+          onClick={openMenu}
+          className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 text-ink-500 hover:text-ink-700 flex items-center justify-center transition-colors"
+        >
+          <MoreVertical size={15} />
+        </button>
+
+        {/* ✅ Dropdown Menu */}
+        {open && (
+          <Portal>
+            <div
+              ref={menuRef}
+              className="fixed z-[9999] bg-white border border-ink-100 rounded-xl shadow-xl shadow-ink-900/15 w-52 py-1"
+              style={pos}
             >
-              <Eye size={14} className="text-ink-400" />
-              View Details
-            </button>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => pick(onPayment)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
-            >
-              <CreditCard size={14} className="text-ink-400" />
-              Record Payment
-            </button>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => pick(onEvidence)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
-            >
-              <Paperclip size={14} className="text-ink-400" />
-              View Evidence
-            </button>
-            <div className="mx-3 my-1 h-px bg-ink-100" />
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => pick(onDelete)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-coral-600 hover:bg-coral-50 active:bg-coral-100 transition-colors"
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
-          </div>
-        </Portal>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => pick(onDetail)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+              >
+                <Eye size={14} className="text-ink-400" />
+                View Details
+              </button>
+
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => pick(onPayment)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+              >
+                <CreditCard size={14} className="text-ink-400" />
+                Record Payment
+              </button>
+
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => pick(onEvidence)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+              >
+                <Paperclip size={14} className="text-ink-400" />
+                View Evidence
+              </button>
+
+              <div className="mx-3 my-1 h-px bg-ink-100" />
+
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={handleDelete} // ✅ Uses toast-enabled handler
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-coral-600 hover:bg-coral-50 active:bg-coral-100 transition-colors"
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
+          </Portal>
+        )}
+      </div>
+
+      {/* ✅ Toast - EXACTLY like SignInPage */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -195,7 +247,11 @@ function ReminderModal({
   const evCount = debt.evidences?.length || 0;
   const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
   const [includeEvidence, setIncludeEvidence] = useState(false);
-
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
   const [msg, setMsg] = useState(defaultMsg);
 
@@ -518,279 +574,272 @@ function EvidenceLightbox({
   );
 }
 
-// ─── Evidence panel ───────────────────────────────────────────────────────────
-
+// ─── Evidence Panel ───────────────────────────────────────────────────────────
 function EvidencePanel({
   debt,
   onClose,
-  onUpdate,
+  onUpload,
 }: {
   debt: DebtRecord;
   onClose: () => void;
-  onUpdate: (id: string, evidences: Evidence[]) => void;
+  onUpload: (evidences: Evidence[]) => void;
 }) {
-  const [evidences, setEvidences] = useState<Evidence[]>(debt.evidences || []);
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [noteFor, setNoteFor] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleFiles(files: FileList | null) {
-    if (!files) return;
-    setUploading(true);
-    const promises = Array.from(files).map(
+  const existingCount = debt.evidences?.length || 0;
+  const maxFiles = 5 - existingCount;
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(
       (file) =>
-        new Promise<Evidence>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            resolve({
-              id: `ev${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
-              name: file.name,
-              type: file.type.startsWith("image/") ? "image" : "document",
-              url: e.target?.result as string,
-              uploadedAt: new Date().toISOString().split("T")[0],
-            });
-          };
-          reader.readAsDataURL(file);
-        }),
+        file.type.startsWith("image/") || file.type === "application/pdf",
     );
-    Promise.all(promises).then((newEvs) => {
-      const updated = [...evidences, ...newEvs];
-      setEvidences(updated);
-      onUpdate(debt.id, updated);
-      setUploading(false);
+
+    if (droppedFiles.length > maxFiles) {
+      // toast.error(`Maximum ${maxFiles} files allowed`);
+      return;
+    }
+
+    setFiles((prev) => [...prev, ...droppedFiles]);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFiles = Array.from(e.target.files || []).filter(
+      (file) =>
+        file.type.startsWith("image/") || file.type === "application/pdf",
+    );
+
+    if (selectedFiles.length > maxFiles) {
+      // toast.error(`Maximum ${maxFiles} files allowed`);
+      return;
+    }
+
+    setFiles((prev) => [...prev, ...selectedFiles]);
+    e.target.value = ""; // Reset input
+  }
+
+  async function uploadFiles() {
+    if (files.length === 0) {
+      // toast.error("Please select files first");
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+
+    files.forEach((file, index) => {
+      formData.append(`files`, file);
     });
+
+    formData.append("debtId", debt.id);
+    formData.append("customerName", debt.customerName);
+
+    try {
+      const token = localStorage.getItem("debtpadi_token");
+      const response = await fetch(
+        `http://localhost:5000/api/debts/${debt.id}/evidence`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData, // ✅ No Content-Type - let browser set multipart boundary
+        },
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        // toast.success(
+        //   `${data.uploaded} file${data.uploaded === 1 ? "" : "s"} uploaded successfully!`,
+        // );
+
+        alert(
+          `${data.uploaded} file${data.uploaded === 1 ? "" : "s"} uploaded successfully!`,
+        );
+        onUpload(data.evidences); // Update parent with new evidences
+        onClose();
+      } else {
+        // toast.error(data.message || "Upload failed");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      // toast.error("Upload failed - check your connection");
+    } finally {
+      setUploading(false);
+      setFiles([]);
+    }
   }
 
-  function handleDelete(evId: string) {
-    const updated = evidences.filter((e) => e.id !== evId);
-    setEvidences(updated);
-    onUpdate(debt.id, updated);
-  }
-
-  function saveNote(evId: string) {
-    const updated = evidences.map((e) =>
-      e.id === evId ? { ...e, note: noteText } : e,
-    );
-    setEvidences(updated);
-    onUpdate(debt.id, updated);
-    setNoteFor(null);
-    setNoteText("");
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   return (
-    <>
-      <Portal>
-        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
-            <div className="flex items-start justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
-              <div className="min-w-0 pr-4">
-                <h2 className="font-heading font-bold text-lg text-ink-900">
-                  Debt Evidence
-                </h2>
-                <p className="text-ink-400 text-xs mt-0.5 truncate">
-                  {debt.customerName} · {debt.description}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors flex-shrink-0"
-              >
-                <X size={16} />
-              </button>
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+            <div>
+              <h2 className="font-heading font-bold text-lg text-ink-900">
+                Upload Evidence ({existingCount + files.length}/5)
+              </h2>
+              <p className="text-ink-400 text-xs mt-0.5">
+                For {debt.customerName} ·{" "}
+                {formatNaira(debt.amount - debt.amountPaid)} owed
+              </p>
             </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
 
-            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                <p className="text-amber-700 text-xs font-semibold uppercase tracking-wide mb-1">
-                  What is debt evidence?
-                </p>
-                <p className="text-amber-700/80 text-xs leading-relaxed">
-                  Upload receipts, photos of goods delivered, or written
-                  agreements. This protects you in case of disputes.
-                </p>
-              </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Drop zone */}
+            <div
+              className={`relative border-2 rounded-2xl p-8 text-center transition-all ${
+                dragActive
+                  ? "border-jade-400 bg-jade/10 ring-2 ring-jade/30"
+                  : "border-dashed border-ink-200 hover:border-ink-300 bg-ink-50/50"
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragActive(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragActive(false);
+              }}
+              onDrop={handleDrop}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf"
+                onChange={handleFileSelect}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+
+              <Upload
+                size={48}
+                className={`mx-auto mb-3 ${dragActive ? "text-jade-500" : "text-ink-400"}`}
+              />
 
               <div>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={(e) => handleFiles(e.target.files)}
-                />
-                <div
-                  className="border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-jade/2 group"
-                  onClick={() => fileRef.current?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    handleFiles(e.dataTransfer.files);
-                  }}
+                <p
+                  className={`font-semibold mb-1 ${dragActive ? "text-jade-700" : "text-ink-700"}`}
                 >
-                  <div className="w-12 h-12 bg-ink-100 group-hover:bg-jade/10 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-colors">
-                    <Upload
-                      size={22}
-                      className="text-ink-400 group-hover:text-jade transition-colors"
-                    />
-                  </div>
-                  <p className="font-semibold text-ink-700 text-sm group-hover:text-ink-900">
-                    {uploading
-                      ? "Uploading..."
-                      : "Tap to upload or drag & drop"}
-                  </p>
-                  <p className="text-ink-400 text-xs mt-1">
-                    Photos, PDFs, Word docs · Multiple files allowed
-                  </p>
-                </div>
+                  {dragActive
+                    ? "Drop files here"
+                    : "Drag & drop or click to browse"}
+                </p>
+                <p className="text-xs text-ink-500 mb-4">
+                  PNG, JPG, PDF (max {maxFiles} files, 10MB each)
+                </p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 bg-jade hover:bg-jade-500 text-ink-900 font-semibold px-5 py-2.5 rounded-xl transition-all text-sm"
+                >
+                  <Upload size={14} />
+                  Select Files
+                </button>
               </div>
+            </div>
 
-              {evidences.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-14 h-14 bg-ink-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <Paperclip size={22} className="text-ink-400" />
-                  </div>
-                  <p className="text-ink-500 text-sm font-medium">
-                    No evidence uploaded yet
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-ink-500 text-xs font-semibold uppercase tracking-wide mb-3">
-                    {evidences.length} file{evidences.length !== 1 ? "s" : ""}{" "}
-                    uploaded
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {evidences.map((ev, i) => (
-                      <div
-                        key={ev.id}
-                        className="group relative bg-ink-50 border border-ink-100 rounded-xl overflow-hidden"
-                      >
-                        {ev.type === "image" ? (
-                          <div
-                            className="aspect-square bg-ink-100 overflow-hidden cursor-pointer"
-                            onClick={() => setLightboxIdx(i)}
-                          >
+            {/* File list */}
+            {files.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-ink-600 uppercase tracking-wide">
+                  Selected Files
+                </p>
+                <div className="space-y-2 max-h-40 overflow-y-auto -mx-5 px-5">
+                  {files.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-ink-50 rounded-xl border border-ink-100 hover:bg-ink-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 truncate">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center flex-shrink-0">
+                          {file.type.startsWith("image/") ? (
                             <img
-                              src={ev.url}
-                              alt={ev.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="w-8 h-8 object-cover rounded"
                             />
-                          </div>
-                        ) : (
-                          <div
-                            className="aspect-square bg-ink-100 flex flex-col items-center justify-center gap-2 cursor-pointer"
-                            onClick={() => setLightboxIdx(i)}
-                          >
-                            <FileText size={28} className="text-ink-400" />
-                            <p className="text-ink-500 text-[10px] text-center px-2 truncate w-full">
-                              {ev.name}
-                            </p>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-ink-900/0 group-hover:bg-ink-900/50 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
-                          <button
-                            onClick={() => setLightboxIdx(i)}
-                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-jade hover:text-ink-900 text-ink-700 transition-all"
-                          >
-                            <ZoomIn size={14} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setNoteFor(ev.id);
-                              setNoteText(ev.note || "");
-                            }}
-                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-amber-50 text-ink-700 transition-all"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(ev.id)}
-                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-coral-50 text-coral-500 transition-all"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <div className="px-2 py-1.5">
-                          <p className="text-ink-600 text-[10px] truncate font-medium">
-                            {ev.name}
-                          </p>
-                          {ev.note && (
-                            <p className="text-ink-400 text-[9px] truncate italic">
-                              "{ev.note}"
-                            </p>
+                          ) : (
+                            <FileText size={20} className="text-white" />
                           )}
-                          <p className="text-ink-300 text-[9px] mt-0.5">
-                            {ev.uploadedAt}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate text-ink-700">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-ink-500">
+                            {(file.size / 1024 / 1024).toFixed(1)} MB
                           </p>
                         </div>
                       </div>
-                    ))}
-                    <div
-                      className="aspect-square bg-ink-50 border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-jade/5"
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <Plus size={20} className="text-ink-400" />
-                      <p className="text-ink-400 text-[10px] font-medium">
-                        Add more
-                      </p>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="w-7 h-7 rounded-full bg-ink-200 hover:bg-coral text-coral hover:bg-coral/20 flex items-center justify-center transition-all"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {noteFor && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-amber-700 text-sm font-semibold mb-2">
-                    Add a note to this file
+            {/* Progress */}
+            {uploading && (
+              <div className="bg-ink-50 rounded-xl p-4 flex items-center gap-3">
+                <div className="w-6 h-6 border-2 border-jade-400 border-t-transparent rounded-full animate-spin" />
+                <div>
+                  <p className="font-semibold text-sm text-ink-700">
+                    Uploading...
                   </p>
-                  <input
-                    type="text"
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    placeholder="e.g. Receipt from Jan 15 delivery"
-                    autoFocus
-                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm mb-3 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setNoteFor(null)}
-                      className="flex-1 border border-amber-200 text-amber-700 font-semibold py-2 rounded-xl text-sm hover:bg-amber-100 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => saveNote(noteFor)}
-                      className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold py-2 rounded-xl text-sm transition-colors"
-                    >
-                      Save Note
-                    </button>
-                  </div>
+                  <p className="text-xs text-ink-500">Please wait</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
 
-            <div className="px-5 py-4 border-t border-ink-100 flex-shrink-0">
-              <button
-                onClick={onClose}
-                className="w-full bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg"
-              >
-                Done
-              </button>
-            </div>
+          <div className="px-5 py-4 border-t border-ink-100 flex gap-3 flex-shrink-0">
+            <button
+              onClick={onClose}
+              disabled={uploading}
+              className="flex-1 bg-ink-50 hover:bg-ink-100 text-ink-600 font-semibold py-3.5 rounded-xl transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={uploadFiles}
+              disabled={files.length === 0 || uploading}
+              className="flex-1 bg-gradient-to-r from-jade to-emerald text-ink-900 font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl hover:from-jade-500 hover:to-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading
+                ? "Uploading..."
+                : `Upload ${files.length} File${files.length !== 1 ? "s" : ""}`}
+            </button>
           </div>
         </div>
-      </Portal>
-      {lightboxIdx !== null && (
-        <EvidenceLightbox
-          evidences={evidences}
-          startIndex={lightboxIdx}
-          onClose={() => setLightboxIdx(null)}
-        />
-      )}
-    </>
+      </div>
+    </Portal>
   );
 }
 
@@ -1508,6 +1557,10 @@ export default function DebtorsPage() {
   const [filter, setFilter] = useState<
     "all" | "overdue" | "partial" | "cleared" | "pending"
   >("all");
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DebtRecord | null>(null);
@@ -1993,7 +2046,7 @@ export default function DebtorsPage() {
           <EvidencePanel
             debt={evidenceDebt}
             onClose={() => setEvidenceDebt(null)}
-            onUpdate={handleEvidenceUpdate}
+            onUpload={handleEvidenceUpdate} // ← Match EvidencePanel prop
           />
         )}
         {paymentDebt && (
@@ -2022,6 +2075,14 @@ export default function DebtorsPage() {
           />
         )}
       </div>
+      {/* Toast Notification - Same as SignInPage */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </>
   );
 }

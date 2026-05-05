@@ -1,48 +1,50 @@
 // ─── lib/adapters.ts ─────────────────────────────────────────────────────────
-// Converts backend API shapes → the DebtRecord shape that page.tsx already uses.
-// This keeps the UI component untouched while we swap mock → real data.
+// Maps between API response shapes (ApiDebt) and the frontend DebtRecord shape.
 
-import type { ApiDebt, ApiEvidence } from "./api";
-import type { DebtRecord, Evidence } from "./data";
+import type { ApiDebt, ApiEvidence } from './api';
+import type { DebtRecord, Evidence } from './data';
 
-export function apiEvidenceToEvidence(ev: ApiEvidence): Evidence {
+export function apiDebtToDebtRecord(apiDebt: ApiDebt): DebtRecord {
   return {
-    id: ev.id,
-    name: ev.name,
-    type: ev.type,
-    url: ev.url,
-    uploadedAt: ev.uploadedAt,
-    note: ev.note,
+    id: apiDebt._id,
+    // customerId is needed by useDebts to reuse existing customers
+    customerId: typeof apiDebt.customer === 'string'
+      ? apiDebt.customer
+      : apiDebt.customer._id,
+    customerName: typeof apiDebt.customer === 'string'
+      ? ''
+      : apiDebt.customer.name,
+    description: apiDebt.description,
+    amount: apiDebt.amount,
+    amountPaid: apiDebt.amountPaid,
+    dueDate: apiDebt.dueDate
+      ? new Date(apiDebt.dueDate).toISOString().split('T')[0]
+      : undefined,
+    status: apiDebt.status,
+    payments: apiDebt.payments ?? [],
+    evidences: (apiDebt.evidences ?? []).map(apiEvidenceToEvidence),
+    createdAt: apiDebt.createdAt,
   };
 }
 
-export function apiDebtToDebtRecord(d: ApiDebt): DebtRecord {
+export function apiEvidenceToEvidence(e: ApiEvidence): Evidence {
   return {
-    id: d._id,
-    customerId: d.customer._id,
-    customerName: d.customer.name,
-    description: d.description,
-    amount: d.amount,
-    amountPaid: d.amountPaid,
-    dueDate: d.dueDate,
-    status: d.status,
-    createdAt: d.createdAt.split("T")[0],
-    payments: (d.payments ?? []).map((p) => ({
-      amount: p.amount,
-      note: p.note,
-      recordedAt: p.recordedAt,
-    })),
-    evidences: (d.evidences ?? []).map(apiEvidenceToEvidence),
+    id: e.id,
+    name: e.name,
+    type: e.type,
+    url: e.url,
+    uploadedAt: e.uploadedAt,
+    note: e.note,
   };
 }
 
 export function debtRecordEvidencesToApi(evidences: Evidence[]): ApiEvidence[] {
-  return evidences.map((ev) => ({
-    id: ev.id,
-    name: ev.name,
-    type: ev.type,
-    url: ev.url,
-    uploadedAt: ev.uploadedAt,
-    note: ev.note,
+  return evidences.map((e) => ({
+    id: e.id,
+    name: e.name,
+    type: e.type,
+    url: e.url,
+    uploadedAt: e.uploadedAt,
+    note: e.note,
   }));
 }

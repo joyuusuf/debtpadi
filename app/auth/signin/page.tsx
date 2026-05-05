@@ -43,6 +43,8 @@ export default function SignInPage() {
       localStorage.setItem("debtpadi_user", JSON.stringify(data.user)); // ✅ USER OBJECT
       localStorage.setItem("debtpadi_token", data.token); // ✅ RAW JWT
 
+      // Also trust the cookie
+      document.cookie = `debtpadi_token=${data.token}; path=/; max-age=${30 * 24 * 60 * 60}`;
       window.location.href = "/dashboard";
     } catch (err: any) {
       setToast({ message: err.message, type: "error" });
