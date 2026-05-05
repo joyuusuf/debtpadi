@@ -13,14 +13,19 @@ import {
   AlertTriangle,
   Phone,
   Paperclip,
-  Image,
   FileText,
   Upload,
-  Eye,
   ZoomIn,
   ChevronLeft,
   ChevronRight,
   Download,
+  ArrowLeft,
+  CreditCard,
+  TrendingUp,
+  Calendar,
+  CircleDollarSign,
+  History,
+  Eye,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
@@ -33,10 +38,8 @@ import {
 import TopBar from "@/components/layout/TopBar";
 import PageSkeleton from "@/components/debtorsLayout/debtorsSkeleton";
 import { useWhatsappReminder } from "@/components/aiReminder/aiReminder";
-// ─── NEW: real-data hook ──────────────────────────────────────────────────────
 import { useDebts, type DebtForm } from "@/hooks/useDebts";
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
+import { createPortal } from "react-dom";
 
 const EMPTY_FORM: DebtForm = {
   customerName: "",
@@ -47,80 +50,139 @@ const EMPTY_FORM: DebtForm = {
   dueDate: "",
 };
 
+// ─── Portal wrapper so modals never overflow ──────────────────────────────────
+
+function Portal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
 // ─── Action dropdown ──────────────────────────────────────────────────────────
 
 function ActionMenu({
-  onEdit,
+  onPayment,
+  onDetail,
   onDelete,
   onEvidence,
 }: {
-  onEdit: () => void;
+  onPayment: () => void;
+  onDetail: () => void;
   onDelete: () => void;
   onEvidence: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+  }>({ right: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
+  const MENU_HEIGHT = 190;
+
+  function openMenu(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const right = window.innerWidth - rect.right;
+    if (spaceBelow < MENU_HEIGHT + 12) {
+      setPos({ bottom: window.innerHeight - rect.top + 8, right });
+    } else {
+      setPos({ top: rect.bottom + 8, right });
+    }
+    setOpen((v) => !v);
+  }
+
+  // Close when clicking outside — but NOT during the same click that opened it
   useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
+    if (!open) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
+      }
+    }
+    // Use pointerdown (not mousedown) and add it on next tick so the
+    // current click that opened the menu doesn't immediately close it
+    const id = window.setTimeout(() => {
+      document.addEventListener("pointerdown", handlePointerDown);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
+  }, [open]);
+
+  function pick(fn: () => void) {
+    setOpen(false);
+    fn();
+  }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
-        }}
+        ref={triggerRef}
+        onClick={openMenu}
         className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 text-ink-500 hover:text-ink-700 flex items-center justify-center transition-colors"
       >
         <MoreVertical size={15} />
       </button>
       {open && (
-        <div className="absolute right-0 top-10 z-50 bg-white border border-ink-100 rounded-xl shadow-lg shadow-ink-900/10 w-44 py-1 animate-fade-in">
-          <button
-            onClick={() => {
-              setOpen(false);
-              onEdit();
-            }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-50 transition-colors"
+        <Portal>
+          <div
+            ref={menuRef}
+            className="fixed z-[9999] bg-white border border-ink-100 rounded-xl shadow-xl shadow-ink-900/15 w-52 py-1"
+            style={pos}
           >
-            <Pencil size={14} className="text-ink-400" />
-            Edit
-          </button>
-          <button
-            onClick={() => {
-              setOpen(false);
-              onEvidence();
-            }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-50 transition-colors"
-          >
-            <Paperclip size={14} className="text-ink-400" />
-            View Evidence
-          </button>
-          <div className="mx-3 my-1 h-px bg-ink-100" />
-          <button
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-coral-600 hover:bg-coral-50 transition-colors"
-          >
-            <Trash2 size={14} />
-            Delete
-          </button>
-        </div>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => pick(onDetail)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+            >
+              <Eye size={14} className="text-ink-400" />
+              View Details
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => pick(onPayment)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+            >
+              <CreditCard size={14} className="text-ink-400" />
+              Record Payment
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => pick(onEvidence)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
+            >
+              <Paperclip size={14} className="text-ink-400" />
+              View Evidence
+            </button>
+            <div className="mx-3 my-1 h-px bg-ink-100" />
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => pick(onDelete)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-coral-600 hover:bg-coral-50 active:bg-coral-100 transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          </div>
+        </Portal>
       )}
     </div>
   );
 }
 
-// ─── Reminder modal (WhatsApp + SMS) ─────────────────────────────────────────
+// ─── Reminder modal ───────────────────────────────────────────────────────────
 
 function ReminderModal({
   debt,
@@ -131,8 +193,8 @@ function ReminderModal({
 }) {
   const outstanding = debt.amount - debt.amountPaid;
   const evCount = debt.evidences?.length || 0;
-  const hasEvidence = evCount > 0;
   const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
+  const [includeEvidence, setIncludeEvidence] = useState(false);
 
   const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
   const [msg, setMsg] = useState(defaultMsg);
@@ -147,170 +209,194 @@ function ReminderModal({
     if (aiMessage) setMsg(aiMessage);
   }, [aiMessage]);
 
+  function buildEvidenceText() {
+    if (!includeEvidence || !debt.evidences?.length) return "";
+    const names = debt.evidences.map((e) => e.name).join(", ");
+    return `\n\nAttached evidence: ${names}`;
+  }
+
   function sendWhatsApp() {
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    const fullMsg = msg + buildEvidenceText();
+    window.open(`https://wa.me/?text=${encodeURIComponent(fullMsg)}`, "_blank");
     onClose();
   }
 
   function sendSMS() {
-    window.open(`sms:?body=${encodeURIComponent(msg)}`, "_blank");
+    const fullMsg = msg + buildEvidenceText();
+    window.open(`sms:?body=${encodeURIComponent(fullMsg)}`, "_blank");
     onClose();
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
-          <div>
-            <h2 className="font-heading font-bold text-lg text-ink-900">
-              Send Reminder
-            </h2>
-            <p className="text-ink-400 text-xs mt-0.5">
-              To{" "}
-              <span className="font-semibold text-ink-600">
-                {debt.customerName}
-              </span>{" "}
-              · {formatNaira(outstanding)} outstanding
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-          {hasEvidence ? (
-            <div className="bg-jade/5 border border-jade/20 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-jade/15 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Paperclip size={15} className="text-jade" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-jade-700 text-sm font-semibold">
-                    {evCount} evidence file{evCount !== 1 ? "s" : ""} attached
-                  </p>
-                  <p className="text-jade-700/70 text-xs mt-0.5 leading-relaxed">
-                    Evidence is saved and will be linked automatically.
-                  </p>
-                </div>
-              </div>
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+            <div>
+              <h2 className="font-heading font-bold text-lg text-ink-900">
+                Send Reminder
+              </h2>
+              <p className="text-ink-400 text-xs mt-0.5">
+                To{" "}
+                <span className="font-semibold text-ink-600">
+                  {debt.customerName}
+                </span>{" "}
+                · {formatNaira(outstanding)} outstanding
+              </p>
             </div>
-          ) : (
-            <div className="bg-ink-50 border border-ink-100 rounded-xl p-4 flex items-start gap-3">
-              <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Paperclip size={15} className="text-ink-400" />
-              </div>
-              <div>
-                <p className="text-ink-600 text-sm font-semibold">
-                  No evidence uploaded
-                </p>
-                <p className="text-ink-400 text-xs mt-0.5 leading-relaxed">
-                  Upload a receipt or photo to this debt record first.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <p className="text-ink-600 text-sm font-medium">Message</p>
             <button
-              onClick={() =>
-                generate({
-                  customerName: debt.customerName,
-                  amountOwed: outstanding,
-                  daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
-                  businessName: "Titilayo Farms & Agro Supplies",
-                })
-              }
-              disabled={aiLoading}
-              className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
             >
-              {aiLoading ? (
-                <>
-                  <svg
-                    className="animate-spin w-3 h-3"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    />
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                <>✦ AI Generate</>
-              )}
+              <X size={16} />
             </button>
           </div>
 
-          <div>
-            <textarea
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              rows={4}
-              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
-            />
-            <p className="text-ink-400 text-xs mt-1.5">
-              {msg.length} characters · Edit freely before sending
-            </p>
-          </div>
+          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+            {/* Evidence toggle */}
+            {evCount > 0 && (
+              <button
+                onClick={() => setIncludeEvidence(!includeEvidence)}
+                className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${includeEvidence ? "border-jade/40 bg-jade/5" : "border-ink-100 bg-ink-50 hover:border-ink-200"}`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${includeEvidence ? "bg-jade/15" : "bg-ink-100"}`}
+                >
+                  <Paperclip
+                    size={15}
+                    className={includeEvidence ? "text-jade" : "text-ink-400"}
+                  />
+                </div>
+                <div className="flex-1 text-left">
+                  <p
+                    className={`text-sm font-semibold ${includeEvidence ? "text-jade-700" : "text-ink-600"}`}
+                  >
+                    Include {evCount} evidence file{evCount !== 1 ? "s" : ""}
+                  </p>
+                  <p className="text-xs text-ink-400 mt-0.5">
+                    File names will be listed in the message
+                  </p>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${includeEvidence ? "border-jade bg-jade" : "border-ink-300"}`}
+                >
+                  {includeEvidence && (
+                    <CheckCircle size={12} className="text-white fill-white" />
+                  )}
+                </div>
+              </button>
+            )}
 
-          <div>
-            <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
-            <div className="grid grid-cols-2 gap-3">
+            {evCount === 0 && (
+              <div className="bg-ink-50 border border-ink-100 rounded-xl p-3.5 flex items-center gap-3">
+                <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Paperclip size={15} className="text-ink-400" />
+                </div>
+                <p className="text-ink-500 text-xs">
+                  No evidence uploaded — add files via the evidence panel
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <p className="text-ink-600 text-sm font-medium">Message</p>
               <button
-                onClick={sendWhatsApp}
-                className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
+                onClick={() =>
+                  generate({
+                    customerName: debt.customerName,
+                    amountOwed: outstanding,
+                    daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
+                    businessName: "Titilayo Farms & Agro Supplies",
+                  })
+                }
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
               >
-                <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                  </svg>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-ink-800">WhatsApp</p>
-                  <p className="text-[10px] text-ink-500 mt-0.5">
-                    Opens WhatsApp
-                  </p>
-                </div>
+                {aiLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>✦ AI Generate</>
+                )}
               </button>
-              <button
-                onClick={sendSMS}
-                className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 hover:border-ink-300 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
-              >
-                <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Phone size={18} className="text-white" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-ink-800">SMS</p>
-                  <p className="text-[10px] text-ink-500 mt-0.5">
-                    Opens messages app
-                  </p>
-                </div>
-              </button>
+            </div>
+
+            <div>
+              <textarea
+                value={msg}
+                onChange={(e) => setMsg(e.target.value)}
+                rows={4}
+                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
+              />
+              <p className="text-ink-400 text-xs mt-1.5">
+                {msg.length} characters
+              </p>
+            </div>
+
+            <div>
+              <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={sendWhatsApp}
+                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all group"
+                >
+                  <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="white"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-ink-800">WhatsApp</p>
+                    <p className="text-[10px] text-ink-500">Opens WhatsApp</p>
+                  </div>
+                </button>
+                <button
+                  onClick={sendSMS}
+                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 py-4 px-3 rounded-xl transition-all group"
+                >
+                  <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Phone size={18} className="text-white" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-ink-800">SMS</p>
+                    <p className="text-[10px] text-ink-500">Opens messages</p>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Portal>
   );
 }
 
-// ─── Evidence viewer (lightbox) ───────────────────────────────────────────────
+// ─── Evidence lightbox ────────────────────────────────────────────────────────
 
 function EvidenceLightbox({
   evidences,
@@ -336,95 +422,99 @@ function EvidenceLightbox({
   }, [idx, evidences.length, onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-[60] bg-ink-900/95 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
+    <Portal>
       <div
-        className="relative w-full max-w-3xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-[1100] bg-ink-900/95 backdrop-blur-sm flex items-center justify-center p-4"
+        onClick={onClose}
       >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-white font-semibold text-sm">{current.name}</p>
-            <p className="text-ink-400 text-xs">
-              {idx + 1} of {evidences.length} ·{" "}
-              {new Date(current.uploadedAt).toLocaleDateString("en-NG", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={current.url}
-              download={current.name}
-              className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-colors"
-            >
-              <Download size={16} />
-            </a>
-            <button
-              onClick={onClose}
-              className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-        <div className="bg-ink-800 rounded-2xl overflow-hidden flex items-center justify-center min-h-[60vh]">
-          {current.type === "image" ? (
-            <img
-              src={current.url}
-              alt={current.name}
-              className="max-w-full max-h-[70vh] object-contain"
-            />
-          ) : (
-            <div className="flex flex-col items-center gap-4 p-12 text-center">
-              <div className="w-20 h-20 bg-ink-700 rounded-2xl flex items-center justify-center">
-                <FileText size={40} className="text-ink-400" />
-              </div>
-              <p className="text-white font-semibold">{current.name}</p>
-              {current.note && (
-                <p className="text-ink-500 text-sm italic">"{current.note}"</p>
-              )}
+        <div
+          className="relative w-full max-w-3xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-white font-semibold text-sm">{current.name}</p>
+              <p className="text-ink-400 text-xs">
+                {idx + 1} of {evidences.length} ·{" "}
+                {new Date(current.uploadedAt).toLocaleDateString("en-NG", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
               <a
                 href={current.url}
                 download={current.name}
-                className="flex items-center gap-2 bg-jade hover:bg-jade-400 text-ink-900 font-bold px-5 py-2.5 rounded-xl transition-all"
+                className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-colors"
               >
-                <Download size={16} /> Download File
+                <Download size={16} />
               </a>
+              <button
+                onClick={onClose}
+                className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="bg-ink-800 rounded-2xl overflow-hidden flex items-center justify-center min-h-[60vh]">
+            {current.type === "image" ? (
+              <img
+                src={current.url}
+                alt={current.name}
+                className="max-w-full max-h-[70vh] object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4 p-12 text-center">
+                <div className="w-20 h-20 bg-ink-700 rounded-2xl flex items-center justify-center">
+                  <FileText size={40} className="text-ink-400" />
+                </div>
+                <p className="text-white font-semibold">{current.name}</p>
+                {current.note && (
+                  <p className="text-ink-500 text-sm italic">
+                    "{current.note}"
+                  </p>
+                )}
+                <a
+                  href={current.url}
+                  download={current.name}
+                  className="flex items-center gap-2 bg-jade hover:bg-jade-400 text-ink-900 font-bold px-5 py-2.5 rounded-xl transition-all"
+                >
+                  <Download size={16} /> Download File
+                </a>
+              </div>
+            )}
+          </div>
+          {current.note && current.type === "image" && (
+            <p className="text-ink-400 text-sm text-center mt-3 italic">
+              "{current.note}"
+            </p>
+          )}
+          {evidences.length > 1 && (
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={() => setIdx((i) => Math.max(0, i - 1))}
+                disabled={idx === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 transition-all"
+              >
+                <ChevronLeft size={16} /> Previous
+              </button>
+              <button
+                onClick={() =>
+                  setIdx((i) => Math.min(evidences.length - 1, i + 1))
+                }
+                disabled={idx === evidences.length - 1}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 transition-all"
+              >
+                Next <ChevronRight size={16} />
+              </button>
             </div>
           )}
         </div>
-        {current.note && current.type === "image" && (
-          <p className="text-ink-400 text-sm text-center mt-3 italic">
-            "{current.note}"
-          </p>
-        )}
-        {evidences.length > 1 && (
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setIdx((i) => Math.max(0, i - 1))}
-              disabled={idx === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft size={16} /> Previous
-            </button>
-            <button
-              onClick={() =>
-                setIdx((i) => Math.min(evidences.length - 1, i + 1))
-              }
-              disabled={idx === evidences.length - 1}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
       </div>
-    </div>
+    </Portal>
   );
 }
 
@@ -468,7 +558,7 @@ function EvidencePanel({
     Promise.all(promises).then((newEvs) => {
       const updated = [...evidences, ...newEvs];
       setEvidences(updated);
-      onUpdate(debt.id, updated); // ← persists to backend via useDebts.updateEvidences
+      onUpdate(debt.id, updated);
       setUploading(false);
     });
   }
@@ -491,208 +581,208 @@ function EvidencePanel({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-        <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
-          <div className="flex items-start justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
-            <div className="min-w-0 pr-4">
-              <h2 className="font-heading font-bold text-lg text-ink-900">
-                Debt Evidence
-              </h2>
-              <p className="text-ink-400 text-xs mt-0.5 truncate">
-                {debt.customerName} · {debt.description}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors flex-shrink-0"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-              <p className="text-amber-700 text-xs font-semibold uppercase tracking-wide mb-1">
-                What is debt evidence?
-              </p>
-              <p className="text-amber-700/80 text-xs leading-relaxed">
-                Upload receipts, photos of goods delivered, written agreements,
-                or screenshots of payment conversations. This protects you in
-                case of disputes.
-              </p>
-            </div>
-
-            <div>
-              <input
-                ref={fileRef}
-                type="file"
-                multiple
-                accept="image/*,.pdf,.doc,.docx"
-                className="hidden"
-                onChange={(e) => handleFiles(e.target.files)}
-              />
-              <div
-                className="border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-jade/2 group"
-                onClick={() => fileRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  handleFiles(e.dataTransfer.files);
-                }}
+      <Portal>
+        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+              <div className="min-w-0 pr-4">
+                <h2 className="font-heading font-bold text-lg text-ink-900">
+                  Debt Evidence
+                </h2>
+                <p className="text-ink-400 text-xs mt-0.5 truncate">
+                  {debt.customerName} · {debt.description}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors flex-shrink-0"
               >
-                <div className="w-12 h-12 bg-ink-100 group-hover:bg-jade/10 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-colors">
-                  <Upload
-                    size={22}
-                    className="text-ink-400 group-hover:text-jade transition-colors"
-                  />
-                </div>
-                <p className="font-semibold text-ink-700 text-sm group-hover:text-ink-900">
-                  {uploading ? "Uploading..." : "Tap to upload or drag & drop"}
-                </p>
-                <p className="text-ink-400 text-xs mt-1">
-                  Photos, PDFs, Word docs · Multiple files allowed
-                </p>
-              </div>
+                <X size={16} />
+              </button>
             </div>
 
-            {evidences.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-14 h-14 bg-ink-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                  <Paperclip size={22} className="text-ink-400" />
-                </div>
-                <p className="text-ink-500 text-sm font-medium">
-                  No evidence uploaded yet
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                <p className="text-amber-700 text-xs font-semibold uppercase tracking-wide mb-1">
+                  What is debt evidence?
                 </p>
-                <p className="text-ink-400 text-xs mt-1">
-                  Upload a receipt or photo to protect yourself from disputes
+                <p className="text-amber-700/80 text-xs leading-relaxed">
+                  Upload receipts, photos of goods delivered, or written
+                  agreements. This protects you in case of disputes.
                 </p>
               </div>
-            ) : (
+
               <div>
-                <p className="text-ink-500 text-xs font-semibold uppercase tracking-wide mb-3">
-                  {evidences.length} file{evidences.length !== 1 ? "s" : ""}{" "}
-                  uploaded
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {evidences.map((ev, i) => (
-                    <div
-                      key={ev.id}
-                      className="group relative bg-ink-50 border border-ink-100 rounded-xl overflow-hidden"
-                    >
-                      {ev.type === "image" ? (
-                        <div
-                          className="aspect-square bg-ink-100 overflow-hidden cursor-pointer"
-                          onClick={() => setLightboxIdx(i)}
-                        >
-                          <img
-                            src={ev.url}
-                            alt={ev.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
+                <input
+                  ref={fileRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                <div
+                  className="border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-jade/2 group"
+                  onClick={() => fileRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleFiles(e.dataTransfer.files);
+                  }}
+                >
+                  <div className="w-12 h-12 bg-ink-100 group-hover:bg-jade/10 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-colors">
+                    <Upload
+                      size={22}
+                      className="text-ink-400 group-hover:text-jade transition-colors"
+                    />
+                  </div>
+                  <p className="font-semibold text-ink-700 text-sm group-hover:text-ink-900">
+                    {uploading
+                      ? "Uploading..."
+                      : "Tap to upload or drag & drop"}
+                  </p>
+                  <p className="text-ink-400 text-xs mt-1">
+                    Photos, PDFs, Word docs · Multiple files allowed
+                  </p>
+                </div>
+              </div>
+
+              {evidences.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-14 h-14 bg-ink-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Paperclip size={22} className="text-ink-400" />
+                  </div>
+                  <p className="text-ink-500 text-sm font-medium">
+                    No evidence uploaded yet
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-ink-500 text-xs font-semibold uppercase tracking-wide mb-3">
+                    {evidences.length} file{evidences.length !== 1 ? "s" : ""}{" "}
+                    uploaded
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {evidences.map((ev, i) => (
+                      <div
+                        key={ev.id}
+                        className="group relative bg-ink-50 border border-ink-100 rounded-xl overflow-hidden"
+                      >
+                        {ev.type === "image" ? (
+                          <div
+                            className="aspect-square bg-ink-100 overflow-hidden cursor-pointer"
+                            onClick={() => setLightboxIdx(i)}
+                          >
+                            <img
+                              src={ev.url}
+                              alt={ev.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className="aspect-square bg-ink-100 flex flex-col items-center justify-center gap-2 cursor-pointer"
+                            onClick={() => setLightboxIdx(i)}
+                          >
+                            <FileText size={28} className="text-ink-400" />
+                            <p className="text-ink-500 text-[10px] text-center px-2 truncate w-full">
+                              {ev.name}
+                            </p>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-ink-900/0 group-hover:bg-ink-900/50 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => setLightboxIdx(i)}
+                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-jade hover:text-ink-900 text-ink-700 transition-all"
+                          >
+                            <ZoomIn size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setNoteFor(ev.id);
+                              setNoteText(ev.note || "");
+                            }}
+                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-amber-50 text-ink-700 transition-all"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(ev.id)}
+                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-coral-50 text-coral-500 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                      ) : (
-                        <div
-                          className="aspect-square bg-ink-100 flex flex-col items-center justify-center gap-2 cursor-pointer"
-                          onClick={() => setLightboxIdx(i)}
-                        >
-                          <FileText size={28} className="text-ink-400" />
-                          <p className="text-ink-500 text-[10px] text-center px-2 truncate w-full">
+                        <div className="px-2 py-1.5">
+                          <p className="text-ink-600 text-[10px] truncate font-medium">
                             {ev.name}
                           </p>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-ink-900/0 group-hover:bg-ink-900/50 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
-                        <button
-                          onClick={() => setLightboxIdx(i)}
-                          className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-jade hover:text-ink-900 text-ink-700 transition-all"
-                        >
-                          <ZoomIn size={14} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setNoteFor(ev.id);
-                            setNoteText(ev.note || "");
-                          }}
-                          className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-amber-50 text-ink-700 transition-all"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(ev.id)}
-                          className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-coral-50 text-coral-500 transition-all"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <div className="px-2 py-1.5">
-                        <p className="text-ink-600 text-[10px] truncate font-medium">
-                          {ev.name}
-                        </p>
-                        {ev.note && (
-                          <p className="text-ink-400 text-[9px] truncate italic">
-                            "{ev.note}"
+                          {ev.note && (
+                            <p className="text-ink-400 text-[9px] truncate italic">
+                              "{ev.note}"
+                            </p>
+                          )}
+                          <p className="text-ink-300 text-[9px] mt-0.5">
+                            {ev.uploadedAt}
                           </p>
-                        )}
-                        <p className="text-ink-300 text-[9px] mt-0.5">
-                          {ev.uploadedAt}
-                        </p>
+                        </div>
                       </div>
+                    ))}
+                    <div
+                      className="aspect-square bg-ink-50 border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-jade/5"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Plus size={20} className="text-ink-400" />
+                      <p className="text-ink-400 text-[10px] font-medium">
+                        Add more
+                      </p>
                     </div>
-                  ))}
-                  <div
-                    className="aspect-square bg-ink-50 border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-jade/5"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <Plus size={20} className="text-ink-400" />
-                    <p className="text-ink-400 text-[10px] font-medium">
-                      Add more
-                    </p>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {noteFor && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-amber-700 text-sm font-semibold mb-2">
-                  Add a note to this file
-                </p>
-                <input
-                  type="text"
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="e.g. Receipt from Jan 15 delivery"
-                  autoFocus
-                  className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm mb-3 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setNoteFor(null)}
-                    className="flex-1 border border-amber-200 text-amber-700 font-semibold py-2 rounded-xl text-sm hover:bg-amber-100 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => saveNote(noteFor)}
-                    className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold py-2 rounded-xl text-sm transition-colors"
-                  >
-                    Save Note
-                  </button>
+              {noteFor && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-amber-700 text-sm font-semibold mb-2">
+                    Add a note to this file
+                  </p>
+                  <input
+                    type="text"
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="e.g. Receipt from Jan 15 delivery"
+                    autoFocus
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm mb-3 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setNoteFor(null)}
+                      className="flex-1 border border-amber-200 text-amber-700 font-semibold py-2 rounded-xl text-sm hover:bg-amber-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => saveNote(noteFor)}
+                      className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold py-2 rounded-xl text-sm transition-colors"
+                    >
+                      Save Note
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="px-5 py-4 border-t border-ink-100 flex-shrink-0">
-            <button
-              onClick={onClose}
-              className="w-full bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg"
-            >
-              Done
-            </button>
+            <div className="px-5 py-4 border-t border-ink-100 flex-shrink-0">
+              <button
+                onClick={onClose}
+                className="w-full bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </Portal>
       {lightboxIdx !== null && (
         <EvidenceLightbox
           evidences={evidences}
@@ -716,55 +806,480 @@ function DeleteModal({
   onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-up">
-        <div className="w-12 h-12 bg-coral-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle size={22} className="text-coral-500" />
-        </div>
-        <h2 className="font-heading font-bold text-xl text-ink-900 text-center mb-2">
-          Delete this debt?
-        </h2>
-        <p className="text-ink-500 text-sm text-center mb-1">
-          <span className="font-semibold text-ink-700">
-            {debt.customerName}
-          </span>{" "}
-          — {debt.description}
-        </p>
-        <p className="text-coral-500 font-bold text-center mb-2">
-          {formatNaira(debt.amount)}
-        </p>
-        <p className="text-ink-400 text-xs text-center mb-6">
-          This action cannot be undone.
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 bg-coral-500 hover:bg-coral-600 text-white font-bold py-3 rounded-xl transition-all hover:shadow-lg"
-          >
-            Yes, Delete
-          </button>
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-up">
+          <div className="w-12 h-12 bg-coral-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={22} className="text-coral-500" />
+          </div>
+          <h2 className="font-heading font-bold text-xl text-ink-900 text-center mb-2">
+            Delete this debt?
+          </h2>
+          <p className="text-ink-500 text-sm text-center mb-1">
+            <span className="font-semibold text-ink-700">
+              {debt.customerName}
+            </span>{" "}
+            — {debt.description}
+          </p>
+          <p className="text-coral-500 font-bold text-center mb-2">
+            {formatNaira(debt.amount)}
+          </p>
+          <p className="text-ink-400 text-xs text-center mb-6">
+            This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 bg-coral-500 hover:bg-coral-600 text-white font-bold py-3 rounded-xl transition-all hover:shadow-lg"
+            >
+              Yes, Delete
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Portal>
   );
 }
 
-// ─── Add / Edit modal ─────────────────────────────────────────────────────────
+// ─── Record Payment modal ─────────────────────────────────────────────────────
+
+function RecordPaymentModal({
+  debt,
+  onSave,
+  onClose,
+}: {
+  debt: DebtRecord;
+  onSave: (amount: number, note: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const outstanding = debt.amount - debt.amountPaid;
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const val = parseFloat(amount);
+    if (!val || val <= 0) {
+      setError("Enter a valid amount");
+      return;
+    }
+    if (val > outstanding) {
+      setError(
+        `Amount exceeds outstanding balance of ${formatNaira(outstanding)}`,
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(val, note);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to record payment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const quickAmounts = [
+    outstanding * 0.25,
+    outstanding * 0.5,
+    outstanding * 0.75,
+    outstanding,
+  ].filter(Boolean);
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100">
+            <div>
+              <h2 className="font-heading font-bold text-lg text-ink-900">
+                Record Payment
+              </h2>
+              <p className="text-ink-400 text-xs mt-0.5">
+                {debt.customerName} · {formatNaira(outstanding)} outstanding
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <form
+            id="payment-form"
+            onSubmit={handleSubmit}
+            className="px-5 py-4 space-y-4"
+          >
+            <div>
+              <label className="block text-ink-600 text-sm font-medium mb-2">
+                Amount received (₦) *
+              </label>
+              <input
+                type="number"
+                required
+                min={1}
+                max={outstanding}
+                step="0.01"
+                placeholder="0"
+                value={amount}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  setError("");
+                }}
+                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-lg font-bold focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+              />
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {quickAmounts.map((q, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setAmount(String(Math.round(q)))}
+                    className="text-xs bg-ink-100 hover:bg-jade/10 hover:text-jade-700 text-ink-600 font-medium px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    {i === quickAmounts.length - 1
+                      ? "Full"
+                      : `${[25, 50, 75][i]}%`}{" "}
+                    — {formatNaira(Math.round(q))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-ink-600 text-sm font-medium mb-2">
+                Note (optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Cash payment, bank transfer ref..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+              />
+            </div>
+            {error && (
+              <p className="text-coral-500 text-sm font-medium flex items-center gap-1.5">
+                <AlertTriangle size={14} />
+                {error}
+              </p>
+            )}
+          </form>
+          <div className="flex gap-3 px-5 py-4 border-t border-ink-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="payment-form"
+              disabled={saving}
+              className="flex-[2] bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {saving ? (
+                <>
+                  <svg
+                    className="animate-spin w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8H4z"
+                    />
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={16} />
+                  Record Payment
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
+// ─── Debt Detail panel (slide-over) ──────────────────────────────────────────
+
+function DebtDetailPanel({
+  debt,
+  onClose,
+  onPayment,
+  onEvidence,
+  onReminder,
+}: {
+  debt: DebtRecord;
+  onClose: () => void;
+  onPayment: () => void;
+  onEvidence: () => void;
+  onReminder: () => void;
+}) {
+  const outstanding = debt.amount - debt.amountPaid;
+  const progress = debt.amount > 0 ? (debt.amountPaid / debt.amount) * 100 : 0;
+  const sc = getStatusColor(debt.status);
+  const daysOverdue =
+    debt.status === "overdue" ? getDaysOverdue(debt.dueDate || "") : 0;
+  const evCount = debt.evidences?.length || 0;
+
+  const payments = (debt as any).payments || [];
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[94vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-ink-100 flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-heading font-bold text-lg text-ink-900 truncate">
+                {debt.customerName}
+              </h2>
+              <p className="text-ink-400 text-xs truncate">
+                {debt.description}
+              </p>
+            </div>
+            <span className={`badge ${sc.bg} ${sc.text} flex-shrink-0`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1.5`} />
+              {debt.status.charAt(0).toUpperCase() + debt.status.slice(1)}
+            </span>
+          </div>
+
+          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+            {/* Summary card */}
+            <div className="bg-ink-900 rounded-2xl p-5 text-white">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-ink-400 text-xs font-medium uppercase tracking-wide">
+                    Outstanding
+                  </p>
+                  <p className="font-heading font-bold text-3xl mt-1">
+                    {formatNaira(outstanding)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-ink-400 text-xs">Total debt</p>
+                  <p className="font-semibold text-ink-200">
+                    {formatNaira(debt.amount)}
+                  </p>
+                </div>
+              </div>
+              <div className="mb-2">
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="text-ink-400">
+                    {formatNaira(debt.amountPaid)} paid
+                  </span>
+                  <span className="text-ink-300">{Math.round(progress)}%</span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${debt.status === "cleared" ? "bg-jade" : progress > 50 ? "bg-amber-400" : "bg-coral-400"}`}
+                    style={{ width: `${Math.max(progress, 2)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Meta info */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-ink-50 rounded-xl p-3.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Calendar size={13} className="text-ink-400" />
+                  <p className="text-ink-400 text-xs font-medium">Created</p>
+                </div>
+                <p className="text-ink-700 text-sm font-semibold">
+                  {new Date(debt.createdAt).toLocaleDateString("en-NG", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+              <div
+                className={`rounded-xl p-3.5 ${daysOverdue > 0 ? "bg-coral-50" : "bg-ink-50"}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock
+                    size={13}
+                    className={
+                      daysOverdue > 0 ? "text-coral-400" : "text-ink-400"
+                    }
+                  />
+                  <p
+                    className={`text-xs font-medium ${daysOverdue > 0 ? "text-coral-400" : "text-ink-400"}`}
+                  >
+                    Due date
+                  </p>
+                </div>
+                <p
+                  className={`text-sm font-semibold ${daysOverdue > 0 ? "text-coral-600" : "text-ink-700"}`}
+                >
+                  {debt.dueDate
+                    ? new Date(debt.dueDate).toLocaleDateString("en-NG", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "—"}
+                  {daysOverdue > 0 && (
+                    <span className="ml-1 text-xs font-normal">
+                      ({daysOverdue}d late)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="bg-ink-50 rounded-xl p-3.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <History size={13} className="text-ink-400" />
+                  <p className="text-ink-400 text-xs font-medium">
+                    Payments made
+                  </p>
+                </div>
+                <p className="text-ink-700 text-sm font-semibold">
+                  {payments.length} payment{payments.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <div className="bg-ink-50 rounded-xl p-3.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Paperclip size={13} className="text-ink-400" />
+                  <p className="text-ink-400 text-xs font-medium">Evidence</p>
+                </div>
+                <p className="text-ink-700 text-sm font-semibold">
+                  {evCount} file{evCount !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+
+            {/* Payment history */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-heading font-semibold text-ink-800 flex items-center gap-2">
+                  <TrendingUp size={15} className="text-jade" />
+                  Payment History
+                </h3>
+                {debt.status !== "cleared" && (
+                  <button
+                    onClick={onPayment}
+                    className="text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus size={12} /> Add Payment
+                  </button>
+                )}
+              </div>
+
+              {payments.length === 0 ? (
+                <div className="bg-ink-50 rounded-xl p-5 text-center">
+                  <CircleDollarSign
+                    size={24}
+                    className="text-ink-300 mx-auto mb-2"
+                  />
+                  <p className="text-ink-500 text-sm">
+                    No payments recorded yet
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...payments].reverse().map((p: any, i: number) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-ink-50 rounded-xl px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-ink-800 text-sm font-semibold">
+                          {formatNaira(p.amount)}
+                        </p>
+                        {p.note && (
+                          <p className="text-ink-400 text-xs mt-0.5 italic">
+                            {p.note}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-ink-400 text-xs">
+                        {new Date(p.recordedAt).toLocaleDateString("en-NG", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="px-5 py-4 border-t border-ink-100 flex-shrink-0 space-y-2.5">
+            {debt.status !== "cleared" && (
+              <button
+                onClick={onPayment}
+                className="w-full bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <CreditCard size={16} /> Record Payment
+              </button>
+            )}
+            <div className="grid grid-cols-2 gap-2.5">
+              {debt.status !== "cleared" && (
+                <button
+                  onClick={onReminder}
+                  className="flex items-center justify-center gap-2 bg-ink-100 hover:bg-ink-200 text-ink-700 font-semibold py-2.5 rounded-xl transition-colors text-sm"
+                >
+                  <MessageSquare size={15} /> Send Reminder
+                </button>
+              )}
+              <button
+                onClick={onEvidence}
+                className={`flex items-center justify-center gap-2 font-semibold py-2.5 rounded-xl transition-colors text-sm ${evCount > 0 ? "bg-amber-50 hover:bg-amber-100 text-amber-700" : "bg-ink-100 hover:bg-ink-200 text-ink-700"} ${debt.status === "cleared" ? "col-span-2" : ""}`}
+              >
+                <Paperclip size={15} /> Evidence{" "}
+                {evCount > 0 ? `(${evCount})` : ""}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
+// ─── Add Debt modal ───────────────────────────────────────────────────────────
 
 function DebtModal({
-  mode,
   initial,
   existingCustomers,
   onSave,
   onClose,
 }: {
-  mode: "add" | "edit";
   initial: DebtForm;
   existingCustomers: string[];
   onSave: (data: DebtForm) => Promise<void>;
@@ -787,197 +1302,198 @@ function DebtModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
-          <h2 className="font-heading font-bold text-lg text-ink-900">
-            {mode === "add" ? "Add Debt Record" : "Edit Debt Record"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1 px-5 py-4">
-          <form id="debt-form" className="space-y-4" onSubmit={handleSubmit}>
-            {mode === "add" && existingCustomers.length > 0 && (
-              <div className="flex gap-2 p-1 bg-ink-100 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setUseExisting(false)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${!useExisting ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
-                >
-                  New customer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUseExisting(true)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${useExisting ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
-                >
-                  Existing customer
-                </button>
-              </div>
-            )}
-            {useExisting && mode === "add" ? (
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+            <h2 className="font-heading font-bold text-lg text-ink-900">
+              Add Debt Record
+            </h2>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="overflow-y-auto flex-1 px-5 py-4">
+            <form id="debt-form" className="space-y-4" onSubmit={handleSubmit}>
+              {existingCustomers.length > 0 && (
+                <div className="flex gap-2 p-1 bg-ink-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setUseExisting(false)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${!useExisting ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
+                  >
+                    New customer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUseExisting(true)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${useExisting ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
+                  >
+                    Existing customer
+                  </button>
+                </div>
+              )}
+              {useExisting ? (
+                <div>
+                  <label className="block text-ink-600 text-sm font-medium mb-2">
+                    Select customer *
+                  </label>
+                  <select
+                    required
+                    value={form.customerName}
+                    onChange={(e) => update("customerName", e.target.value)}
+                    className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                  >
+                    <option value="">Choose a customer...</option>
+                    {existingCustomers.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-ink-600 text-sm font-medium mb-2">
+                      Customer name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Full name"
+                      value={form.customerName}
+                      onChange={(e) => update("customerName", e.target.value)}
+                      className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-ink-600 text-sm font-medium mb-2">
+                      Phone number
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="0801 234 5678"
+                      value={form.phone}
+                      onChange={(e) => update("phone", e.target.value)}
+                      className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-ink-600 text-sm font-medium mb-2">
-                  Select customer *
+                  What did they buy? *
                 </label>
-                <select
+                <textarea
                   required
-                  value={form.customerName}
-                  onChange={(e) => update("customerName", e.target.value)}
-                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-                >
-                  <option value="">Choose a customer...</option>
-                  {existingCustomers.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  rows={2}
+                  placeholder="e.g. Bag of rice (50kg) + Semovita x3"
+                  value={form.description}
+                  onChange={(e) => update("description", e.target.value)}
+                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
+                />
               </div>
-            ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-ink-600 text-sm font-medium mb-2">
-                    Customer name *
+                    Total amount (₦) *
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     required
-                    placeholder="Full name"
-                    value={form.customerName}
-                    onChange={(e) => update("customerName", e.target.value)}
+                    min={1}
+                    placeholder="15000"
+                    value={form.amount}
+                    onChange={(e) => update("amount", e.target.value)}
                     className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
                   />
                 </div>
                 <div>
                   <label className="block text-ink-600 text-sm font-medium mb-2">
-                    Phone number
+                    Amount paid (₦)
                   </label>
                   <input
-                    type="tel"
-                    placeholder="0801 234 5678"
-                    value={form.phone}
-                    onChange={(e) => update("phone", e.target.value)}
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={form.amountPaid}
+                    onChange={(e) => update("amountPaid", e.target.value)}
                     className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
                   />
                 </div>
               </div>
-            )}
-            <div>
-              <label className="block text-ink-600 text-sm font-medium mb-2">
-                What did they buy? *
-              </label>
-              <textarea
-                required
-                rows={2}
-                placeholder="e.g. Bag of rice (50kg) + Semovita x3"
-                value={form.description}
-                onChange={(e) => update("description", e.target.value)}
-                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-ink-600 text-sm font-medium mb-2">
-                  Total amount (₦) *
+                  Due date
                 </label>
                 <input
-                  type="number"
-                  required
-                  min={1}
-                  placeholder="15000"
-                  value={form.amount}
-                  onChange={(e) => update("amount", e.target.value)}
-                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => update("dueDate", e.target.value)}
+                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
                 />
               </div>
-              <div>
-                <label className="block text-ink-600 text-sm font-medium mb-2">
-                  Amount paid (₦)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={form.amountPaid}
-                  onChange={(e) => update("amountPaid", e.target.value)}
-                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-ink-600 text-sm font-medium mb-2">
-                Due date
-              </label>
-              <input
-                type="date"
-                value={form.dueDate}
-                onChange={(e) => update("dueDate", e.target.value)}
-                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-              />
-            </div>
-          </form>
-        </div>
-        <div className="flex gap-3 px-5 py-4 border-t border-ink-100 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="debt-form"
-            disabled={saving}
-            className="flex-[2] bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <>
-                <svg
-                  className="animate-spin w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  />
-                </svg>
-                {mode === "add" ? "Saving..." : "Updating..."}
-              </>
-            ) : (
-              <>
-                <CheckCircle size={16} />
-                {mode === "add" ? "Save Debt" : "Save Changes"}
-              </>
-            )}
-          </button>
+            </form>
+          </div>
+          <div className="flex gap-3 px-5 py-4 border-t border-ink-100 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="debt-form"
+              disabled={saving}
+              className="flex-[2] bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {saving ? (
+                <>
+                  <svg
+                    className="animate-spin w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8H4z"
+                    />
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={16} />
+                  Save Debt
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Portal>
   );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DebtorsPage() {
-  // ── Replace mock state with real API hook ──
   const {
     debts,
     loading,
@@ -986,6 +1502,7 @@ export default function DebtorsPage() {
     editDebt,
     removeDebt,
     updateEvidences,
+    recordPayment,
   } = useDebts();
 
   const [filter, setFilter] = useState<
@@ -993,10 +1510,11 @@ export default function DebtorsPage() {
   >("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<DebtRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DebtRecord | null>(null);
   const [reminderDebt, setReminderDebt] = useState<DebtRecord | null>(null);
   const [evidenceDebt, setEvidenceDebt] = useState<DebtRecord | null>(null);
+  const [paymentDebt, setPaymentDebt] = useState<DebtRecord | null>(null);
+  const [detailDebt, setDetailDebt] = useState<DebtRecord | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (loading) return <PageSkeleton />;
@@ -1043,19 +1561,6 @@ export default function DebtorsPage() {
     }
   }
 
-  async function handleEdit(form: DebtForm) {
-    if (!editTarget) return;
-    try {
-      setActionError(null);
-      await editDebt(editTarget.id, form);
-      setEditTarget(null);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "Failed to update debt",
-      );
-    }
-  }
-
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
@@ -1069,28 +1574,26 @@ export default function DebtorsPage() {
     }
   }
 
-  async function handleEvidenceUpdate(debtId: string, evidences: Evidence[]) {
-    try {
-      await updateEvidences(debtId, evidences);
-      // Keep evidence panel in sync with latest data
-      setEvidenceDebt((prev) =>
-        prev && prev.id === debtId ? { ...prev, evidences } : prev,
-      );
-    } catch (err: unknown) {
-      // Non-blocking — evidence optimistically updated in UI already
-      console.error("Evidence sync failed:", err);
+  async function handleRecordPayment(amount: number, note: string) {
+    if (!paymentDebt) return;
+    await recordPayment(paymentDebt.id, amount, note);
+    // Refresh detail panel if open
+    if (detailDebt?.id === paymentDebt.id) {
+      const updated = debts.find((d) => d.id === paymentDebt.id);
+      if (updated) setDetailDebt(updated);
     }
   }
 
-  function toForm(d: DebtRecord): DebtForm {
-    return {
-      customerName: d.customerName,
-      phone: "",
-      description: d.description,
-      amount: String(d.amount),
-      amountPaid: String(d.amountPaid),
-      dueDate: d.dueDate || "",
-    };
+  async function handleEvidenceUpdate(debtId: string, evidences: Evidence[]) {
+    try {
+      await updateEvidences(debtId, evidences);
+      if (evidenceDebt?.id === debtId)
+        setEvidenceDebt((prev) => (prev ? { ...prev, evidences } : prev));
+      if (detailDebt?.id === debtId)
+        setDetailDebt((prev) => (prev ? { ...prev, evidences } : prev));
+    } catch (err: unknown) {
+      console.error("Evidence sync failed:", err);
+    }
   }
 
   function EvidenceBadge({ count }: { count: number }) {
@@ -1107,7 +1610,6 @@ export default function DebtorsPage() {
     <>
       <TopBar title="Debtors" />
       <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
-        {/* Inline action error banner */}
         {actionError && (
           <div className="mb-4 flex items-center gap-3 bg-coral-50 border border-coral-200 text-coral-700 text-sm font-medium px-4 py-3 rounded-xl">
             <AlertTriangle size={16} className="flex-shrink-0" />
@@ -1121,7 +1623,6 @@ export default function DebtorsPage() {
           </div>
         )}
 
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <button
             onClick={() => setAddOpen(true)}
@@ -1132,7 +1633,6 @@ export default function DebtorsPage() {
           </button>
         </div>
 
-        {/* Search */}
         <div className="flex items-center gap-2 bg-white border border-ink-100 rounded-xl px-4 py-2.5 mb-4 focus-within:border-jade/40 focus-within:ring-2 focus-within:ring-jade/10 transition-all">
           <Search size={15} className="text-ink-400 flex-shrink-0" />
           <input
@@ -1152,7 +1652,6 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* Filter tabs */}
         <div
           className="flex gap-2 overflow-x-auto pb-1 mb-5"
           style={{ scrollbarWidth: "none" }}
@@ -1175,7 +1674,7 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* ── DESKTOP TABLE ── */}
+        {/* Desktop table */}
         <div className="hidden sm:block bg-white border border-ink-100 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1196,7 +1695,7 @@ export default function DebtorsPage() {
                   <th className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide">
                     Status
                   </th>
-                  <th className="px-5 py-3.5 w-28" />
+                  <th className="px-5 py-3.5 w-32" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
@@ -1209,7 +1708,11 @@ export default function DebtorsPage() {
                       ? getDaysOverdue(debt.dueDate || "")
                       : 0;
                   return (
-                    <tr key={debt.id} className="table-row-hover">
+                    <tr
+                      key={debt.id}
+                      className="table-row-hover cursor-pointer"
+                      onClick={() => setDetailDebt(debt)}
+                    >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-jade/10 flex items-center justify-center flex-shrink-0">
@@ -1288,7 +1791,10 @@ export default function DebtorsPage() {
                             debt.status.slice(1)}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td
+                        className="px-5 py-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-1.5">
                           {debt.status !== "cleared" && (
                             <button
@@ -1302,12 +1808,13 @@ export default function DebtorsPage() {
                           <button
                             onClick={() => setEvidenceDebt(debt)}
                             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${(debt.evidences?.length || 0) > 0 ? "bg-amber-50 hover:bg-amber-100 text-amber-500" : "bg-ink-50 hover:bg-ink-100 text-ink-400"}`}
-                            title="Debt evidence"
+                            title="Evidence"
                           >
                             <Paperclip size={14} />
                           </button>
                           <ActionMenu
-                            onEdit={() => setEditTarget(debt)}
+                            onPayment={() => setPaymentDebt(debt)}
+                            onDetail={() => setDetailDebt(debt)}
                             onDelete={() => setDeleteTarget(debt)}
                             onEvidence={() => setEvidenceDebt(debt)}
                           />
@@ -1334,7 +1841,7 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* ── MOBILE CARDS ── */}
+        {/* Mobile cards */}
         <div className="sm:hidden space-y-3">
           {filtered.map((debt) => {
             const sc = getStatusColor(debt.status);
@@ -1350,6 +1857,7 @@ export default function DebtorsPage() {
               <div
                 key={debt.id}
                 className="bg-white border border-ink-100 rounded-2xl p-4"
+                onClick={() => setDetailDebt(debt)}
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -1380,7 +1888,10 @@ export default function DebtorsPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div
+                    className="flex items-center gap-1 flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {debt.status !== "cleared" && (
                       <button
                         onClick={() => setReminderDebt(debt)}
@@ -1390,13 +1901,14 @@ export default function DebtorsPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => setEvidenceDebt(debt)}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${evCount > 0 ? "bg-amber-50 text-amber-500" : "bg-ink-50 text-ink-400"}`}
+                      onClick={() => setPaymentDebt(debt)}
+                      className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 text-ink-500 flex items-center justify-center transition-colors"
                     >
-                      <Paperclip size={14} />
+                      <CreditCard size={14} />
                     </button>
                     <ActionMenu
-                      onEdit={() => setEditTarget(debt)}
+                      onPayment={() => setPaymentDebt(debt)}
+                      onDetail={() => setDetailDebt(debt)}
                       onDelete={() => setDeleteTarget(debt)}
                       onEvidence={() => setEvidenceDebt(debt)}
                     />
@@ -1455,23 +1967,13 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* ── MODALS ── */}
+        {/* Modals — all via Portal so they never get clipped */}
         {addOpen && (
           <DebtModal
-            mode="add"
             initial={EMPTY_FORM}
             existingCustomers={existingCustomers}
             onSave={handleAdd}
             onClose={() => setAddOpen(false)}
-          />
-        )}
-        {editTarget && (
-          <DebtModal
-            mode="edit"
-            initial={toForm(editTarget)}
-            existingCustomers={existingCustomers}
-            onSave={handleEdit}
-            onClose={() => setEditTarget(null)}
           />
         )}
         {deleteTarget && (
@@ -1492,6 +1994,31 @@ export default function DebtorsPage() {
             debt={evidenceDebt}
             onClose={() => setEvidenceDebt(null)}
             onUpdate={handleEvidenceUpdate}
+          />
+        )}
+        {paymentDebt && (
+          <RecordPaymentModal
+            debt={paymentDebt}
+            onSave={handleRecordPayment}
+            onClose={() => setPaymentDebt(null)}
+          />
+        )}
+        {detailDebt && (
+          <DebtDetailPanel
+            debt={detailDebt}
+            onClose={() => setDetailDebt(null)}
+            onPayment={() => {
+              setPaymentDebt(detailDebt);
+              setDetailDebt(null);
+            }}
+            onEvidence={() => {
+              setEvidenceDebt(detailDebt);
+              setDetailDebt(null);
+            }}
+            onReminder={() => {
+              setReminderDebt(detailDebt);
+              setDetailDebt(null);
+            }}
           />
         )}
       </div>
