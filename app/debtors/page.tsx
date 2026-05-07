@@ -13,8 +13,10 @@ import {
   AlertTriangle,
   Phone,
   Paperclip,
+  Image,
   FileText,
   Upload,
+  Eye,
   ZoomIn,
   ChevronLeft,
   ChevronRight,
@@ -25,7 +27,6 @@ import {
   Calendar,
   CircleDollarSign,
   History,
-  Eye,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Toast } from "@/components/ui/Toast";
@@ -60,6 +61,8 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
+// ─── Action dropdown ──────────────────────────────────────────────────────────
+
 function ActionMenu({
   onPayment,
   onDetail,
@@ -71,7 +74,6 @@ function ActionMenu({
   onDelete: () => void;
   onEvidence: () => void;
 }) {
-  // ✅ Toast state EXACTLY like SignInPage
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -89,27 +91,12 @@ function ActionMenu({
 
   const MENU_HEIGHT = 190;
 
-  // ✅ Delete handler with toast feedback
   async function handleDelete() {
     try {
-      // Your delete API call here
-      // const token = localStorage.getItem("debtpadi_token");
-      // await fetch(`${API_BASE_URL}/debts/${debtId}`, {
-      //   method: "DELETE",
-      //   headers: { Authorization: `Bearer ${token}` }
-      // });
-
-      setToast({
-        message: "Debt deleted successfully",
-        type: "success",
-      });
+      setToast({ message: "Debt deleted successfully", type: "success" });
     } catch (error) {
-      setToast({
-        message: "Failed to delete debt",
-        type: "error",
-      });
+      setToast({ message: "Failed to delete debt", type: "error" });
     }
-
     setOpen(false);
     onDelete();
   }
@@ -117,11 +104,9 @@ function ActionMenu({
   function openMenu(e: React.MouseEvent) {
     e.stopPropagation();
     if (!triggerRef.current) return;
-
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const right = window.innerWidth - rect.right;
-
     if (spaceBelow < MENU_HEIGHT + 12) {
       setPos({ bottom: window.innerHeight - rect.top + 8, right });
     } else {
@@ -130,10 +115,8 @@ function ActionMenu({
     setOpen(true);
   }
 
-  // Close menu on outside click
   useEffect(() => {
     if (!open) return;
-
     function handlePointerDown(e: PointerEvent) {
       if (
         menuRef.current &&
@@ -144,11 +127,9 @@ function ActionMenu({
         setOpen(false);
       }
     }
-
     const id = window.setTimeout(() => {
       document.addEventListener("pointerdown", handlePointerDown);
     }, 0);
-
     return () => {
       window.clearTimeout(id);
       document.removeEventListener("pointerdown", handlePointerDown);
@@ -162,7 +143,6 @@ function ActionMenu({
 
   return (
     <>
-      {/* ✅ Menu Trigger */}
       <div className="relative">
         <button
           ref={triggerRef}
@@ -172,7 +152,6 @@ function ActionMenu({
           <MoreVertical size={15} />
         </button>
 
-        {/* ✅ Dropdown Menu */}
         {open && (
           <Portal>
             <div
@@ -188,7 +167,6 @@ function ActionMenu({
                 <Eye size={14} className="text-ink-400" />
                 View Details
               </button>
-
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => pick(onPayment)}
@@ -197,7 +175,6 @@ function ActionMenu({
                 <CreditCard size={14} className="text-ink-400" />
                 Record Payment
               </button>
-
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => pick(onEvidence)}
@@ -206,12 +183,10 @@ function ActionMenu({
                 <Paperclip size={14} className="text-ink-400" />
                 View Evidence
               </button>
-
               <div className="mx-3 my-1 h-px bg-ink-100" />
-
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={handleDelete} // ✅ Uses toast-enabled handler
+                onClick={handleDelete}
                 className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-coral-600 hover:bg-coral-50 active:bg-coral-100 transition-colors"
               >
                 <Trash2 size={14} />
@@ -222,7 +197,6 @@ function ActionMenu({
         )}
       </div>
 
-      {/* ✅ Toast - EXACTLY like SignInPage */}
       {toast && (
         <Toast
           message={toast.message}
@@ -244,45 +218,30 @@ function ReminderModal({
   onClose: () => void;
 }) {
   const outstanding = debt.amount - debt.amountPaid;
-  const evidences = debt.evidences || [];
+  const evCount = debt.evidences?.length || 0;
+  const hasEvidence = evCount > 0;
   const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
 
   const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
   const [msg, setMsg] = useState(defaultMsg);
-  const [includeEvidence, setIncludeEvidence] = useState(evidences.length > 0);
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   const {
     generate,
     message: aiMessage,
     loading: aiLoading,
   } = useWhatsappReminder();
+
   useEffect(() => {
     if (aiMessage) setMsg(aiMessage);
   }, [aiMessage]);
 
-  // Build the full message with real CDN links
-  function buildFullMessage() {
-    if (!includeEvidence || evidences.length === 0) return msg;
-    const links = evidences
-      .map((ev, i) => `${i + 1}. ${ev.name}\n   ${ev.url}`)
-      .join("\n");
-    return `${msg}\n\n📎 Evidence (${evidences.length} file${evidences.length !== 1 ? "s" : ""}):\n${links}`;
-  }
-
   function sendWhatsApp() {
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(buildFullMessage())}`,
-      "_blank",
-    );
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
     onClose();
   }
 
   function sendSMS() {
-    window.open(
-      `sms:?body=${encodeURIComponent(buildFullMessage())}`,
-      "_blank",
-    );
+    window.open(`sms:?body=${encodeURIComponent(msg)}`, "_blank");
     onClose();
   }
 
@@ -290,7 +249,6 @@ function ReminderModal({
     <Portal>
       <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
         <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
-          {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
             <div>
               <h2 className="font-heading font-bold text-lg text-ink-900">
@@ -313,141 +271,99 @@ function ReminderModal({
           </div>
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {/* Evidence section — always shown if files exist */}
-            {evidences.length > 0 ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-ink-600 text-sm font-medium">
-                    Evidence ({evidences.length} file
-                    {evidences.length !== 1 ? "s" : ""})
-                  </p>
-                  {/* Toggle whether links are appended to message */}
-                  <button
-                    onClick={() => setIncludeEvidence((v) => !v)}
-                    className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                      includeEvidence
-                        ? "bg-jade/15 text-jade-700"
-                        : "bg-ink-100 text-ink-500 hover:bg-ink-200"
-                    }`}
-                  >
-                    <Paperclip size={11} />
-                    {includeEvidence ? "Links included ✓" : "Include links"}
-                  </button>
-                </div>
-
-                {/* Thumbnail grid */}
-                <div className="flex flex-wrap gap-2">
-                  {evidences.map((ev, i) => (
-                    <button
-                      key={ev.id}
-                      onClick={() => setLightboxIdx(i)}
-                      className="relative group w-16 h-16 rounded-xl overflow-hidden border border-ink-100 hover:border-jade/40 transition-colors flex-shrink-0"
-                      title={ev.name}
-                    >
-                      {ev.type === "image" ? (
-                        <img
-                          src={ev.url}
-                          alt={ev.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-ink-100 flex flex-col items-center justify-center gap-1">
-                          <FileText size={20} className="text-ink-400" />
-                          <span className="text-[9px] text-ink-400 uppercase">
-                            {ev.name.split(".").pop()}
-                          </span>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-ink-900/0 group-hover:bg-ink-900/20 transition-all flex items-center justify-center">
-                        <ZoomIn
-                          size={14}
-                          className="text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {includeEvidence && (
-                  <div className="bg-jade/5 border border-jade/20 rounded-xl px-3 py-2.5">
-                    <p className="text-jade-700 text-xs leading-relaxed">
-                      ✓ Cloudinary download links will be appended so the
-                      recipient can view and save each file.
+            {hasEvidence ? (
+              <div className="bg-jade/5 border border-jade/20 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-jade/15 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Paperclip size={15} className="text-jade" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-jade-700 text-sm font-semibold">
+                      {evCount} evidence file{evCount !== 1 ? "s" : ""} attached
+                    </p>
+                    <p className="text-jade-700/70 text-xs mt-0.5 leading-relaxed">
+                      Evidence is saved and will be linked automatically.
                     </p>
                   </div>
-                )}
+                </div>
               </div>
             ) : (
-              <div className="bg-ink-50 border border-ink-100 rounded-xl p-3.5 flex items-center gap-3">
-                <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="bg-ink-50 border border-ink-100 rounded-xl p-4 flex items-start gap-3">
+                <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                   <Paperclip size={15} className="text-ink-400" />
                 </div>
-                <p className="text-ink-500 text-xs">
-                  No evidence uploaded — add files via the evidence panel first.
-                </p>
+                <div>
+                  <p className="text-ink-600 text-sm font-semibold">
+                    No evidence uploaded
+                  </p>
+                  <p className="text-ink-400 text-xs mt-0.5 leading-relaxed">
+                    Upload a receipt or photo to this debt record first.
+                  </p>
+                </div>
               </div>
             )}
 
-            {/* Message */}
+            <div className="flex items-center justify-between">
+              <p className="text-ink-600 text-sm font-medium">Message</p>
+              <button
+                onClick={() =>
+                  generate({
+                    customerName: debt.customerName,
+                    amountOwed: outstanding,
+                    daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
+                    businessName: "DebtPadi",
+                  })
+                }
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {aiLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>✦ AI Generate</>
+                )}
+              </button>
+            </div>
+
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-ink-600 text-sm font-medium">Message</p>
-                <button
-                  onClick={() =>
-                    generate({
-                      customerName: debt.customerName,
-                      amountOwed: outstanding,
-                      daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
-                      businessName: "DebtPadi",
-                    })
-                  }
-                  disabled={aiLoading}
-                  className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
-                >
-                  {aiLoading ? (
-                    <>
-                      <svg
-                        className="animate-spin w-3 h-3"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8v8H4z"
-                        />
-                      </svg>
-                      Generating...
-                    </>
-                  ) : (
-                    <>✦ AI Generate</>
-                  )}
-                </button>
-              </div>
               <textarea
                 value={msg}
                 onChange={(e) => setMsg(e.target.value)}
                 rows={4}
                 className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
               />
-              <p className="text-ink-400 text-xs mt-1">{msg.length} chars</p>
+              <p className="text-ink-400 text-xs mt-1.5">
+                {msg.length} characters · Edit freely before sending
+              </p>
             </div>
 
-            {/* Channels */}
             <div>
               <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={sendWhatsApp}
-                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all group"
+                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
                 >
                   <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
                     <svg
@@ -461,26 +377,22 @@ function ReminderModal({
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-bold text-ink-800">WhatsApp</p>
-                    <p className="text-[10px] text-ink-500">
-                      {includeEvidence && evidences.length > 0
-                        ? "Msg + links"
-                        : "Opens WhatsApp"}
+                    <p className="text-[10px] text-ink-500 mt-0.5">
+                      Opens WhatsApp
                     </p>
                   </div>
                 </button>
                 <button
                   onClick={sendSMS}
-                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 py-4 px-3 rounded-xl transition-all group"
+                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 hover:border-ink-300 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
                 >
                   <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
                     <Phone size={18} className="text-white" />
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-bold text-ink-800">SMS</p>
-                    <p className="text-[10px] text-ink-500">
-                      {includeEvidence && evidences.length > 0
-                        ? "Msg + links"
-                        : "Opens messages"}
+                    <p className="text-[10px] text-ink-500 mt-0.5">
+                      Opens messages app
                     </p>
                   </div>
                 </button>
@@ -489,20 +401,12 @@ function ReminderModal({
           </div>
         </div>
       </div>
-
-      {/* Lightbox */}
-      {lightboxIdx !== null && (
-        <EvidenceLightbox
-          evidences={evidences}
-          startIndex={lightboxIdx}
-          onClose={() => setLightboxIdx(null)}
-        />
-      )}
     </Portal>
   );
 }
 
 // ─── Evidence lightbox ────────────────────────────────────────────────────────
+// FROM DOC 1: full keyboard nav, download button, prev/next controls
 
 function EvidenceLightbox({
   evidences,
@@ -603,7 +507,7 @@ function EvidenceLightbox({
               <button
                 onClick={() => setIdx((i) => Math.max(0, i - 1))}
                 disabled={idx === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={16} /> Previous
               </button>
@@ -612,7 +516,7 @@ function EvidenceLightbox({
                   setIdx((i) => Math.min(evidences.length - 1, i + 1))
                 }
                 disabled={idx === evidences.length - 1}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 Next <ChevronRight size={16} />
               </button>
@@ -624,272 +528,285 @@ function EvidenceLightbox({
   );
 }
 
-// ─── Evidence Panel ───────────────────────────────────────────────────────────
+// ─── Evidence panel ───────────────────────────────────────────────────────────
+// FROM DOC 1: local FileReader upload, per-file note editing, delete, thumbnail grid
+
 function EvidencePanel({
   debt,
   onClose,
-  onUpload,
+  onUpdate,
 }: {
   debt: DebtRecord;
   onClose: () => void;
-  onUpload: (evidences: Evidence[]) => void;
+  onUpdate: (id: string, evidences: Evidence[]) => void;
 }) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [evidences, setEvidences] = useState<Evidence[]>(debt.evidences || []);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const existingCount = debt.evidences?.length || 0;
-  const maxFiles = 5 - existingCount;
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(
-      (file) =>
-        file.type.startsWith("image/") || file.type === "application/pdf",
-    );
-
-    if (droppedFiles.length > maxFiles) {
-      // toast.error(`Maximum ${maxFiles} files allowed`);
-      return;
-    }
-
-    setFiles((prev) => [...prev, ...droppedFiles]);
-  }
-
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFiles = Array.from(e.target.files || []).filter(
-      (file) =>
-        file.type.startsWith("image/") || file.type === "application/pdf",
-    );
-
-    if (selectedFiles.length > maxFiles) {
-      // toast.error(`Maximum ${maxFiles} files allowed`);
-      return;
-    }
-
-    setFiles((prev) => [...prev, ...selectedFiles]);
-    e.target.value = ""; // Reset input
-  }
-
-  async function uploadFiles() {
-    if (files.length === 0) {
-      // toast.error("Please select files first");
-      return;
-    }
-
+  function handleFiles(files: FileList | null) {
+    if (!files) return;
     setUploading(true);
-    const formData = new FormData();
-
-    files.forEach((file, index) => {
-      formData.append(`files`, file);
-    });
-
-    formData.append("debtId", debt.id);
-    formData.append("customerName", debt.customerName);
-
-    try {
-      const token = localStorage.getItem("debtpadi_token");
-      const response = await fetch(
-        `http://localhost:5000/api/debts/${debt.id}/evidence`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData, // ✅ No Content-Type - let browser set multipart boundary
-        },
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        // toast.success(
-        //   `${data.uploaded} file${data.uploaded === 1 ? "" : "s"} uploaded successfully!`,
-        // );
-
-        alert(
-          `${data.uploaded} file${data.uploaded === 1 ? "" : "s"} uploaded successfully!`,
-        );
-        onUpload(data.evidences); // Update parent with new evidences
-        onClose();
-      } else {
-        // toast.error(data.message || "Upload failed");
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      // toast.error("Upload failed - check your connection");
-    } finally {
+    const promises = Array.from(files).map(
+      (file) =>
+        new Promise<Evidence>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            resolve({
+              id: `ev${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+              name: file.name,
+              type: file.type.startsWith("image/") ? "image" : "document",
+              url: e.target?.result as string,
+              uploadedAt: new Date().toISOString().split("T")[0],
+            });
+          };
+          reader.readAsDataURL(file);
+        }),
+    );
+    Promise.all(promises).then((newEvs) => {
+      const updated = [...evidences, ...newEvs];
+      setEvidences(updated);
+      onUpdate(debt.id, updated);
       setUploading(false);
-      setFiles([]);
-    }
+    });
   }
 
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+  function handleDelete(evId: string) {
+    const updated = evidences.filter((e) => e.id !== evId);
+    setEvidences(updated);
+    onUpdate(debt.id, updated);
+  }
+
+  function saveNote(evId: string) {
+    const updated = evidences.map((e) =>
+      e.id === evId ? { ...e, note: noteText } : e,
+    );
+    setEvidences(updated);
+    onUpdate(debt.id, updated);
+    setNoteFor(null);
+    setNoteText("");
   }
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-        <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
-            <div>
-              <h2 className="font-heading font-bold text-lg text-ink-900">
-                Upload Evidence ({existingCount + files.length}/5)
-              </h2>
-              <p className="text-ink-400 text-xs mt-0.5">
-                For {debt.customerName} ·{" "}
-                {formatNaira(debt.amount - debt.amountPaid)} owed
-              </p>
+    <>
+      <Portal>
+        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+              <div className="min-w-0 pr-4">
+                <h2 className="font-heading font-bold text-lg text-ink-900">
+                  Debt Evidence
+                </h2>
+                <p className="text-ink-400 text-xs mt-0.5 truncate">
+                  {debt.customerName} · {debt.description}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors flex-shrink-0"
+              >
+                <X size={16} />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {/* Drop zone */}
-            <div
-              className={`relative border-2 rounded-2xl p-8 text-center transition-all ${
-                dragActive
-                  ? "border-jade-400 bg-jade/10 ring-2 ring-jade/30"
-                  : "border-dashed border-ink-200 hover:border-ink-300 bg-ink-50/50"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDragActive(true);
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDragActive(false);
-              }}
-              onDrop={handleDrop}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,.pdf"
-                onChange={handleFileSelect}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-
-              <Upload
-                size={48}
-                className={`mx-auto mb-3 ${dragActive ? "text-jade-500" : "text-ink-400"}`}
-              />
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                <p className="text-amber-700 text-xs font-semibold uppercase tracking-wide mb-1">
+                  What is debt evidence?
+                </p>
+                <p className="text-amber-700/80 text-xs leading-relaxed">
+                  Upload receipts, photos of goods delivered, written
+                  agreements, or screenshots of payment conversations. This
+                  protects you in case of disputes.
+                </p>
+              </div>
 
               <div>
-                <p
-                  className={`font-semibold mb-1 ${dragActive ? "text-jade-700" : "text-ink-700"}`}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                <div
+                  className="border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-jade/2 group"
+                  onClick={() => fileRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleFiles(e.dataTransfer.files);
+                  }}
                 >
-                  {dragActive
-                    ? "Drop files here"
-                    : "Drag & drop or click to browse"}
-                </p>
-                <p className="text-xs text-ink-500 mb-4">
-                  PNG, JPG, PDF (max {maxFiles} files, 10MB each)
-                </p>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 bg-jade hover:bg-jade-500 text-ink-900 font-semibold px-5 py-2.5 rounded-xl transition-all text-sm"
-                >
-                  <Upload size={14} />
-                  Select Files
-                </button>
+                  <div className="w-12 h-12 bg-ink-100 group-hover:bg-jade/10 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-colors">
+                    <Upload
+                      size={22}
+                      className="text-ink-400 group-hover:text-jade transition-colors"
+                    />
+                  </div>
+                  <p className="font-semibold text-ink-700 text-sm group-hover:text-ink-900">
+                    {uploading
+                      ? "Uploading..."
+                      : "Tap to upload or drag & drop"}
+                  </p>
+                  <p className="text-ink-400 text-xs mt-1">
+                    Photos, PDFs, Word docs · Multiple files allowed
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* File list */}
-            {files.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-ink-600 uppercase tracking-wide">
-                  Selected Files
-                </p>
-                <div className="space-y-2 max-h-40 overflow-y-auto -mx-5 px-5">
-                  {files.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-ink-50 rounded-xl border border-ink-100 hover:bg-ink-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 truncate">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center flex-shrink-0">
-                          {file.type.startsWith("image/") ? (
+              {evidences.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-14 h-14 bg-ink-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Paperclip size={22} className="text-ink-400" />
+                  </div>
+                  <p className="text-ink-500 text-sm font-medium">
+                    No evidence uploaded yet
+                  </p>
+                  <p className="text-ink-400 text-xs mt-1">
+                    Upload a receipt or photo to protect yourself from disputes
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-ink-500 text-xs font-semibold uppercase tracking-wide mb-3">
+                    {evidences.length} file{evidences.length !== 1 ? "s" : ""}{" "}
+                    uploaded
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {evidences.map((ev, i) => (
+                      <div
+                        key={ev.id}
+                        className="group relative bg-ink-50 border border-ink-100 rounded-xl overflow-hidden"
+                      >
+                        {ev.type === "image" ? (
+                          <div
+                            className="aspect-square bg-ink-100 overflow-hidden cursor-pointer"
+                            onClick={() => setLightboxIdx(i)}
+                          >
                             <img
-                              src={URL.createObjectURL(file)}
-                              alt={file.name}
-                              className="w-8 h-8 object-cover rounded"
+                              src={ev.url}
+                              alt={ev.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
-                          ) : (
-                            <FileText size={20} className="text-white" />
-                          )}
+                          </div>
+                        ) : (
+                          <div
+                            className="aspect-square bg-ink-100 flex flex-col items-center justify-center gap-2 cursor-pointer"
+                            onClick={() => setLightboxIdx(i)}
+                          >
+                            <FileText size={28} className="text-ink-400" />
+                            <p className="text-ink-500 text-[10px] text-center px-2 truncate w-full">
+                              {ev.name}
+                            </p>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-ink-900/0 group-hover:bg-ink-900/50 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => setLightboxIdx(i)}
+                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-jade hover:text-ink-900 text-ink-700 transition-all"
+                          >
+                            <ZoomIn size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setNoteFor(ev.id);
+                              setNoteText(ev.note || "");
+                            }}
+                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-amber-50 text-ink-700 transition-all"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(ev.id)}
+                            className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-coral-50 text-coral-500 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm truncate text-ink-700">
-                            {file.name}
+                        <div className="px-2 py-1.5">
+                          <p className="text-ink-600 text-[10px] truncate font-medium">
+                            {ev.name}
                           </p>
-                          <p className="text-xs text-ink-500">
-                            {(file.size / 1024 / 1024).toFixed(1)} MB
+                          {ev.note && (
+                            <p className="text-ink-400 text-[9px] truncate italic">
+                              "{ev.note}"
+                            </p>
+                          )}
+                          <p className="text-ink-300 text-[9px] mt-0.5">
+                            {ev.uploadedAt}
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="w-7 h-7 rounded-full bg-ink-200 hover:bg-coral text-coral hover:bg-coral/20 flex items-center justify-center transition-all"
-                      >
-                        <X size={14} />
-                      </button>
+                    ))}
+                    <div
+                      className="aspect-square bg-ink-50 border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-jade/5"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Plus size={20} className="text-ink-400" />
+                      <p className="text-ink-400 text-[10px] font-medium">
+                        Add more
+                      </p>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Progress */}
-            {uploading && (
-              <div className="bg-ink-50 rounded-xl p-4 flex items-center gap-3">
-                <div className="w-6 h-6 border-2 border-jade-400 border-t-transparent rounded-full animate-spin" />
-                <div>
-                  <p className="font-semibold text-sm text-ink-700">
-                    Uploading...
+              {noteFor && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-amber-700 text-sm font-semibold mb-2">
+                    Add a note to this file
                   </p>
-                  <p className="text-xs text-ink-500">Please wait</p>
+                  <input
+                    type="text"
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="e.g. Receipt from Jan 15 delivery"
+                    autoFocus
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm mb-3 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setNoteFor(null)}
+                      className="flex-1 border border-amber-200 text-amber-700 font-semibold py-2 rounded-xl text-sm hover:bg-amber-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => saveNote(noteFor)}
+                      className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold py-2 rounded-xl text-sm transition-colors"
+                    >
+                      Save Note
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="px-5 py-4 border-t border-ink-100 flex gap-3 flex-shrink-0">
-            <button
-              onClick={onClose}
-              disabled={uploading}
-              className="flex-1 bg-ink-50 hover:bg-ink-100 text-ink-600 font-semibold py-3.5 rounded-xl transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={uploadFiles}
-              disabled={files.length === 0 || uploading}
-              className="flex-1 bg-gradient-to-r from-jade to-emerald text-ink-900 font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl hover:from-jade-500 hover:to-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploading
-                ? "Uploading..."
-                : `Upload ${files.length} File${files.length !== 1 ? "s" : ""}`}
-            </button>
+            <div className="px-5 py-4 border-t border-ink-100 flex-shrink-0">
+              <button
+                onClick={onClose}
+                className="w-full bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </Portal>
+      </Portal>
+
+      {lightboxIdx !== null && (
+        <EvidenceLightbox
+          evidences={evidences}
+          startIndex={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -1124,7 +1041,7 @@ function RecordPaymentModal({
   );
 }
 
-// ─── Debt Detail panel (slide-over) ──────────────────────────────────────────
+// ─── Debt Detail panel ────────────────────────────────────────────────────────
 
 function DebtDetailPanel({
   debt,
@@ -1145,14 +1062,12 @@ function DebtDetailPanel({
   const daysOverdue =
     debt.status === "overdue" ? getDaysOverdue(debt.dueDate || "") : 0;
   const evCount = debt.evidences?.length || 0;
-
   const payments = (debt as any).payments || [];
 
   return (
     <Portal>
       <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
         <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[94vh] flex flex-col">
-          {/* Header */}
           <div className="flex items-center gap-3 px-5 py-4 border-b border-ink-100 flex-shrink-0">
             <button
               onClick={onClose}
@@ -1175,7 +1090,6 @@ function DebtDetailPanel({
           </div>
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
-            {/* Summary card */}
             <div className="bg-ink-900 rounded-2xl p-5 text-white">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -1209,7 +1123,6 @@ function DebtDetailPanel({
               </div>
             </div>
 
-            {/* Meta info */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-ink-50 rounded-xl p-3.5">
                 <div className="flex items-center gap-2 mb-1">
@@ -1279,7 +1192,6 @@ function DebtDetailPanel({
               </div>
             </div>
 
-            {/* Payment history */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-heading font-semibold text-ink-800 flex items-center gap-2">
@@ -1337,7 +1249,6 @@ function DebtDetailPanel({
             </div>
           </div>
 
-          {/* Actions */}
           <div className="px-5 py-4 border-t border-ink-100 flex-shrink-0 space-y-2.5">
             {debt.status !== "cleared" && (
               <button
@@ -1680,13 +1591,13 @@ export default function DebtorsPage() {
   async function handleRecordPayment(amount: number, note: string) {
     if (!paymentDebt) return;
     await recordPayment(paymentDebt.id, amount, note);
-    // Refresh detail panel if open
     if (detailDebt?.id === paymentDebt.id) {
       const updated = debts.find((d) => d.id === paymentDebt.id);
       if (updated) setDetailDebt(updated);
     }
   }
 
+  // NOTE: EvidencePanel uses onUpdate(id, evidences) — matches Doc 1's local FileReader pattern
   async function handleEvidenceUpdate(debtId: string, evidences: Evidence[]) {
     try {
       await updateEvidences(debtId, evidences);
@@ -1777,7 +1688,7 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* Desktop table */}
+        {/* ── DESKTOP TABLE ── */}
         <div className="hidden sm:block bg-white border border-ink-100 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1944,7 +1855,7 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* Mobile cards */}
+        {/* ── MOBILE CARDS ── */}
         <div className="sm:hidden space-y-3">
           {filtered.map((debt) => {
             const sc = getStatusColor(debt.status);
@@ -2070,7 +1981,7 @@ export default function DebtorsPage() {
           )}
         </div>
 
-        {/* Modals — all via Portal so they never get clipped */}
+        {/* ── MODALS ── */}
         {addOpen && (
           <DebtModal
             initial={EMPTY_FORM}
@@ -2092,11 +2003,12 @@ export default function DebtorsPage() {
             onClose={() => setReminderDebt(null)}
           />
         )}
+        {/* EvidencePanel from Doc 1: FileReader + thumbnail grid + notes + delete + lightbox */}
         {evidenceDebt && (
           <EvidencePanel
             debt={evidenceDebt}
             onClose={() => setEvidenceDebt(null)}
-            onUpload={handleEvidenceUpdate} // ← Match EvidencePanel prop
+            onUpdate={handleEvidenceUpdate}
           />
         )}
         {paymentDebt && (
@@ -2125,7 +2037,7 @@ export default function DebtorsPage() {
           />
         )}
       </div>
-      {/* Toast Notification - Same as SignInPage */}
+
       {toast && (
         <Toast
           message={toast.message}
