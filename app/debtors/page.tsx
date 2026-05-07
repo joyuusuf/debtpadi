@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Plus,
   Search,
@@ -13,10 +13,8 @@ import {
   AlertTriangle,
   Phone,
   Paperclip,
-  Image,
   FileText,
   Upload,
-  Eye,
   ZoomIn,
   ChevronLeft,
   ChevronRight,
@@ -27,6 +25,15 @@ import {
   Calendar,
   CircleDollarSign,
   History,
+  Eye,
+  Package,
+  ShoppingCart,
+  Banknote,
+  Smartphone,
+  Receipt,
+  HelpCircle,
+  ChevronDown,
+  GripVertical,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Toast } from "@/components/ui/Toast";
@@ -43,16 +50,74 @@ import { useWhatsappReminder } from "@/components/aiReminder/aiReminder";
 import { useDebts, type DebtForm } from "@/hooks/useDebts";
 import { createPortal } from "react-dom";
 
-const EMPTY_FORM: DebtForm = {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface LineItem {
+  id: string; // client-side only for key
+  name: string;
+  qty: number | string;
+  unit: string;
+  unitPrice: number | string;
+}
+
+export interface DebtFormV2 {
+  customerName: string;
+  phone: string;
+  items: LineItem[];
+  description: string; // optional override
+  dueDate: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash", icon: Banknote },
+  { value: "transfer", label: "Bank Transfer", icon: Smartphone },
+  { value: "pos", label: "POS", icon: CreditCard },
+  { value: "cheque", label: "Cheque", icon: Receipt },
+  { value: "other", label: "Other", icon: HelpCircle },
+] as const;
+
+type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
+
+const EMPTY_ITEM = (): LineItem => ({
+  id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  name: "",
+  qty: 1,
+  unit: "",
+  unitPrice: "",
+});
+
+const EMPTY_FORM: DebtFormV2 = {
   customerName: "",
   phone: "",
+  items: [EMPTY_ITEM()],
   description: "",
-  amount: "",
-  amountPaid: "",
   dueDate: "",
 };
 
-// ─── Portal wrapper so modals never overflow ──────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function calcItemsTotal(items: LineItem[]): number {
+  return items.reduce((sum, it) => {
+    const q = parseFloat(String(it.qty)) || 0;
+    const p = parseFloat(String(it.unitPrice)) || 0;
+    return sum + q * p;
+  }, 0);
+}
+
+function itemsToDescription(items: LineItem[]): string {
+  return items
+    .filter((it) => it.name.trim())
+    .map((it) => {
+      const q = it.qty ? `x${it.qty}` : "";
+      const u = it.unit ? ` ${it.unit}` : "";
+      return `${it.name.trim()} ${q}${u}`.trim();
+    })
+    .join(", ");
+}
+
+// ─── Portal ───────────────────────────────────────────────────────────────────
 
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -79,35 +144,20 @@ function ActionMenu({
     message: string;
     type: "success" | "error";
   } | null>(null);
-
   const [pos, setPos] = useState<{
     top?: number;
     bottom?: number;
     right: number;
   }>({ right: 0 });
-
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  const MENU_HEIGHT = 190;
-
-  async function handleDelete() {
-    try {
-      setToast({ message: "Debt deleted successfully", type: "success" });
-    } catch (error) {
-      setToast({ message: "Failed to delete debt", type: "error" });
-    }
-    setOpen(false);
-    onDelete();
-  }
 
   function openMenu(e: React.MouseEvent) {
     e.stopPropagation();
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
     const right = window.innerWidth - rect.right;
-    if (spaceBelow < MENU_HEIGHT + 12) {
+    if (window.innerHeight - rect.bottom < 210) {
       setPos({ bottom: window.innerHeight - rect.top + 8, right });
     } else {
       setPos({ top: rect.bottom + 8, right });
@@ -117,23 +167,19 @@ function ActionMenu({
 
   useEffect(() => {
     if (!open) return;
-    function handlePointerDown(e: PointerEvent) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
     const id = window.setTimeout(() => {
-      document.addEventListener("pointerdown", handlePointerDown);
+      const h = (e: PointerEvent) => {
+        if (
+          !menuRef.current?.contains(e.target as Node) &&
+          !triggerRef.current?.contains(e.target as Node)
+        ) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("pointerdown", h);
+      return () => document.removeEventListener("pointerdown", h);
     }, 0);
-    return () => {
-      window.clearTimeout(id);
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
+    return () => window.clearTimeout(id);
   }, [open]);
 
   function pick(fn: () => void) {
@@ -151,43 +197,51 @@ function ActionMenu({
         >
           <MoreVertical size={15} />
         </button>
-
         {open && (
           <Portal>
             <div
               ref={menuRef}
-              className="fixed z-[9999] bg-white border border-ink-100 rounded-xl shadow-xl shadow-ink-900/15 w-52 py-1"
               style={pos}
+              className="fixed z-[9999] bg-white border border-ink-100 rounded-xl shadow-xl shadow-ink-900/15 w-52 py-1"
             >
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => pick(onDetail)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
-              >
-                <Eye size={14} className="text-ink-400" />
-                View Details
-              </button>
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => pick(onPayment)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
-              >
-                <CreditCard size={14} className="text-ink-400" />
-                Record Payment
-              </button>
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => pick(onEvidence)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 active:bg-ink-100 transition-colors"
-              >
-                <Paperclip size={14} className="text-ink-400" />
-                View Evidence
-              </button>
+              {[
+                {
+                  label: "View Details",
+                  icon: Eye,
+                  fn: onDetail,
+                  cls: "text-ink-700 hover:bg-ink-50",
+                },
+                {
+                  label: "Record Payment",
+                  icon: CreditCard,
+                  fn: onPayment,
+                  cls: "text-ink-700 hover:bg-ink-50",
+                },
+                {
+                  label: "View Evidence",
+                  icon: Paperclip,
+                  fn: onEvidence,
+                  cls: "text-ink-700 hover:bg-ink-50",
+                },
+              ].map(({ label, icon: Icon, fn, cls }) => (
+                <button
+                  key={label}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => pick(fn)}
+                  className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors ${cls}`}
+                >
+                  <Icon size={14} className="text-ink-400" />
+                  {label}
+                </button>
+              ))}
               <div className="mx-3 my-1 h-px bg-ink-100" />
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={handleDelete}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-coral-600 hover:bg-coral-50 active:bg-coral-100 transition-colors"
+                onClick={() => {
+                  setOpen(false);
+                  onDelete();
+                }}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-coral-600 hover:bg-coral-50 transition-colors"
               >
                 <Trash2 size={14} />
                 Delete
@@ -196,7 +250,6 @@ function ActionMenu({
           </Portal>
         )}
       </div>
-
       {toast && (
         <Toast
           message={toast.message}
@@ -208,205 +261,154 @@ function ActionMenu({
   );
 }
 
-// ─── Reminder modal ───────────────────────────────────────────────────────────
+// ─── Line item editor ─────────────────────────────────────────────────────────
 
-function ReminderModal({
-  debt,
-  onClose,
+function LineItemEditor({
+  items,
+  onChange,
 }: {
-  debt: DebtRecord;
-  onClose: () => void;
+  items: LineItem[];
+  onChange: (items: LineItem[]) => void;
 }) {
-  const outstanding = debt.amount - debt.amountPaid;
-  const evCount = debt.evidences?.length || 0;
-  const hasEvidence = evCount > 0;
-  const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
-
-  const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
-  const [msg, setMsg] = useState(defaultMsg);
-
-  const {
-    generate,
-    message: aiMessage,
-    loading: aiLoading,
-  } = useWhatsappReminder();
-
-  useEffect(() => {
-    if (aiMessage) setMsg(aiMessage);
-  }, [aiMessage]);
-
-  function sendWhatsApp() {
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-    onClose();
+  function updateItem(id: string, key: keyof LineItem, value: string | number) {
+    onChange(items.map((it) => (it.id === id ? { ...it, [key]: value } : it)));
+  }
+  function addItem() {
+    onChange([...items, EMPTY_ITEM()]);
+  }
+  function removeItem(id: string) {
+    if (items.length === 1) return; // keep at least one row
+    onChange(items.filter((it) => it.id !== id));
   }
 
-  function sendSMS() {
-    window.open(`sms:?body=${encodeURIComponent(msg)}`, "_blank");
-    onClose();
-  }
+  const total = calcItemsTotal(items);
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
-            <div>
-              <h2 className="font-heading font-bold text-lg text-ink-900">
-                Send Reminder
-              </h2>
-              <p className="text-ink-400 text-xs mt-0.5">
-                To{" "}
-                <span className="font-semibold text-ink-600">
-                  {debt.customerName}
-                </span>{" "}
-                · {formatNaira(outstanding)} outstanding
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {hasEvidence ? (
-              <div className="bg-jade/5 border border-jade/20 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-jade/15 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Paperclip size={15} className="text-jade" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-jade-700 text-sm font-semibold">
-                      {evCount} evidence file{evCount !== 1 ? "s" : ""} attached
-                    </p>
-                    <p className="text-jade-700/70 text-xs mt-0.5 leading-relaxed">
-                      Evidence is saved and will be linked automatically.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-ink-50 border border-ink-100 rounded-xl p-4 flex items-start gap-3">
-                <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Paperclip size={15} className="text-ink-400" />
-                </div>
-                <div>
-                  <p className="text-ink-600 text-sm font-semibold">
-                    No evidence uploaded
-                  </p>
-                  <p className="text-ink-400 text-xs mt-0.5 leading-relaxed">
-                    Upload a receipt or photo to this debt record first.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <p className="text-ink-600 text-sm font-medium">Message</p>
-              <button
-                onClick={() =>
-                  generate({
-                    customerName: debt.customerName,
-                    amountOwed: outstanding,
-                    daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
-                    businessName: "DebtPadi",
-                  })
-                }
-                disabled={aiLoading}
-                className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {aiLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin w-3 h-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>✦ AI Generate</>
-                )}
-              </button>
-            </div>
-
-            <div>
-              <textarea
-                value={msg}
-                onChange={(e) => setMsg(e.target.value)}
-                rows={4}
-                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
-              />
-              <p className="text-ink-400 text-xs mt-1.5">
-                {msg.length} characters · Edit freely before sending
-              </p>
-            </div>
-
-            <div>
-              <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={sendWhatsApp}
-                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
-                >
-                  <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="white"
-                    >
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                    </svg>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-ink-800">WhatsApp</p>
-                    <p className="text-[10px] text-ink-500 mt-0.5">
-                      Opens WhatsApp
-                    </p>
-                  </div>
-                </button>
-                <button
-                  onClick={sendSMS}
-                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 hover:border-ink-300 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
-                >
-                  <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Phone size={18} className="text-white" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-ink-800">SMS</p>
-                    <p className="text-[10px] text-ink-500 mt-0.5">
-                      Opens messages app
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-2">
+      {/* Column headers */}
+      <div className="grid grid-cols-[1fr_56px_72px_90px_28px] gap-1.5 px-1">
+        {["Item", "Qty", "Unit", "Price (₦)", ""].map((h) => (
+          <p
+            key={h}
+            className="text-[10px] font-semibold uppercase tracking-wide text-ink-400"
+          >
+            {h}
+          </p>
+        ))}
       </div>
-    </Portal>
+
+      {items.map((item, idx) => (
+        <div
+          key={item.id}
+          className="grid grid-cols-[1fr_56px_72px_90px_28px] gap-1.5 items-center"
+        >
+          {/* Name */}
+          <input
+            type="text"
+            required
+            placeholder={`Item ${idx + 1}`}
+            value={item.name}
+            onChange={(e) => updateItem(item.id, "name", e.target.value)}
+            className="w-full bg-ink-50 border border-ink-200 rounded-lg px-2.5 py-2 text-ink-700 text-sm focus:border-jade/50 focus:ring-1 focus:ring-jade/10 transition-all"
+          />
+          {/* Qty */}
+          <input
+            type="number"
+            min={0.01}
+            step="any"
+            placeholder="1"
+            value={item.qty}
+            onChange={(e) => updateItem(item.id, "qty", e.target.value)}
+            className="w-full bg-ink-50 border border-ink-200 rounded-lg px-2 py-2 text-ink-700 text-sm text-center focus:border-jade/50 focus:ring-1 focus:ring-jade/10 transition-all"
+          />
+          {/* Unit */}
+          <input
+            type="text"
+            placeholder="kg/bag"
+            value={item.unit}
+            onChange={(e) => updateItem(item.id, "unit", e.target.value)}
+            className="w-full bg-ink-50 border border-ink-200 rounded-lg px-2 py-2 text-ink-700 text-sm focus:border-jade/50 focus:ring-1 focus:ring-jade/10 transition-all"
+          />
+          {/* Unit price */}
+          <input
+            type="number"
+            min={0}
+            step="any"
+            required
+            placeholder="0"
+            value={item.unitPrice}
+            onChange={(e) => updateItem(item.id, "unitPrice", e.target.value)}
+            className="w-full bg-ink-50 border border-ink-200 rounded-lg px-2 py-2 text-ink-700 text-sm focus:border-jade/50 focus:ring-1 focus:ring-jade/10 transition-all"
+          />
+          {/* Remove */}
+          <button
+            type="button"
+            onClick={() => removeItem(item.id)}
+            disabled={items.length === 1}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-coral-500 hover:bg-coral-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      ))}
+
+      {/* Add row + running total */}
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={addItem}
+          className="flex items-center gap-1.5 text-xs font-semibold text-jade-700 bg-jade/8 hover:bg-jade/15 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Plus size={12} /> Add item
+        </button>
+        {total > 0 && (
+          <div className="text-right">
+            <p className="text-[10px] text-ink-400 uppercase tracking-wide">
+              Total
+            </p>
+            <p className="font-heading font-bold text-ink-900 text-base">
+              {formatNaira(total)}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Payment method selector ──────────────────────────────────────────────────
+
+function PaymentMethodSelector({
+  value,
+  onChange,
+}: {
+  value: PaymentMethod;
+  onChange: (v: PaymentMethod) => void;
+}) {
+  return (
+    <div className="grid grid-cols-5 gap-1.5">
+      {PAYMENT_METHODS.map(({ value: v, label, icon: Icon }) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border text-center transition-all ${
+            value === v
+              ? "bg-ink-900 border-ink-900 text-white"
+              : "bg-ink-50 border-ink-100 text-ink-500 hover:border-ink-300 hover:text-ink-700"
+          }`}
+        >
+          <Icon size={15} />
+          <span className="text-[10px] font-semibold leading-tight">
+            {label}
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
 // ─── Evidence lightbox ────────────────────────────────────────────────────────
-// FROM DOC 1: full keyboard nav, download button, prev/next controls
 
 function EvidenceLightbox({
   evidences,
@@ -507,7 +509,7 @@ function EvidenceLightbox({
               <button
                 onClick={() => setIdx((i) => Math.max(0, i - 1))}
                 disabled={idx === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 transition-all"
               >
                 <ChevronLeft size={16} /> Previous
               </button>
@@ -516,7 +518,7 @@ function EvidenceLightbox({
                   setIdx((i) => Math.min(evidences.length - 1, i + 1))
                 }
                 disabled={idx === evidences.length - 1}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl disabled:opacity-30 transition-all"
               >
                 Next <ChevronRight size={16} />
               </button>
@@ -529,7 +531,6 @@ function EvidenceLightbox({
 }
 
 // ─── Evidence panel ───────────────────────────────────────────────────────────
-// FROM DOC 1: local FileReader upload, per-file note editing, delete, thumbnail grid
 
 function EvidencePanel({
   debt,
@@ -550,23 +551,23 @@ function EvidencePanel({
   function handleFiles(files: FileList | null) {
     if (!files) return;
     setUploading(true);
-    const promises = Array.from(files).map(
-      (file) =>
-        new Promise<Evidence>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            resolve({
-              id: `ev${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
-              name: file.name,
-              type: file.type.startsWith("image/") ? "image" : "document",
-              url: e.target?.result as string,
-              uploadedAt: new Date().toISOString().split("T")[0],
-            });
-          };
-          reader.readAsDataURL(file);
-        }),
-    );
-    Promise.all(promises).then((newEvs) => {
+    Promise.all(
+      Array.from(files).map(
+        (file) =>
+          new Promise<Evidence>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) =>
+              resolve({
+                id: `ev${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+                name: file.name,
+                type: file.type.startsWith("image/") ? "image" : "document",
+                url: e.target?.result as string,
+                uploadedAt: new Date().toISOString().split("T")[0],
+              });
+            reader.readAsDataURL(file);
+          }),
+      ),
+    ).then((newEvs) => {
       const updated = [...evidences, ...newEvs];
       setEvidences(updated);
       onUpdate(debt.id, updated);
@@ -634,7 +635,7 @@ function EvidencePanel({
                   onChange={(e) => handleFiles(e.target.files)}
                 />
                 <div
-                  className="border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-jade/2 group"
+                  className="border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-jade/[0.02] group"
                   onClick={() => fileRef.current?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
@@ -798,7 +799,6 @@ function EvidencePanel({
           </div>
         </div>
       </Portal>
-
       {lightboxIdx !== null && (
         <EvidenceLightbox
           evidences={evidences}
@@ -807,6 +807,196 @@ function EvidencePanel({
         />
       )}
     </>
+  );
+}
+
+// ─── Reminder modal ───────────────────────────────────────────────────────────
+
+function ReminderModal({
+  debt,
+  onClose,
+}: {
+  debt: DebtRecord;
+  onClose: () => void;
+}) {
+  const outstanding = debt.amount - debt.amountPaid;
+  const evCount = debt.evidences?.length || 0;
+  const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
+  const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
+  const [msg, setMsg] = useState(defaultMsg);
+  const {
+    generate,
+    message: aiMessage,
+    loading: aiLoading,
+  } = useWhatsappReminder();
+
+  useEffect(() => {
+    if (aiMessage) setMsg(aiMessage);
+  }, [aiMessage]);
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
+            <div>
+              <h2 className="font-heading font-bold text-lg text-ink-900">
+                Send Reminder
+              </h2>
+              <p className="text-ink-400 text-xs mt-0.5">
+                To{" "}
+                <span className="font-semibold text-ink-600">
+                  {debt.customerName}
+                </span>{" "}
+                · {formatNaira(outstanding)} outstanding
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+            {evCount > 0 ? (
+              <div className="bg-jade/5 border border-jade/20 rounded-xl p-4 flex items-start gap-3">
+                <div className="w-8 h-8 bg-jade/15 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Paperclip size={15} className="text-jade" />
+                </div>
+                <div>
+                  <p className="text-jade-700 text-sm font-semibold">
+                    {evCount} evidence file{evCount !== 1 ? "s" : ""} attached
+                  </p>
+                  <p className="text-jade-700/70 text-xs mt-0.5 leading-relaxed">
+                    Evidence is saved and will be linked automatically.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-ink-50 border border-ink-100 rounded-xl p-4 flex items-start gap-3">
+                <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Paperclip size={15} className="text-ink-400" />
+                </div>
+                <div>
+                  <p className="text-ink-600 text-sm font-semibold">
+                    No evidence uploaded
+                  </p>
+                  <p className="text-ink-400 text-xs mt-0.5 leading-relaxed">
+                    Upload a receipt or photo to this debt record first.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <p className="text-ink-600 text-sm font-medium">Message</p>
+              <button
+                onClick={() =>
+                  generate({
+                    customerName: debt.customerName,
+                    amountOwed: outstanding,
+                    daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
+                    businessName: "DebtPadi",
+                  })
+                }
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+              >
+                {aiLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>✦ AI Generate</>
+                )}
+              </button>
+            </div>
+            <div>
+              <textarea
+                value={msg}
+                onChange={(e) => setMsg(e.target.value)}
+                rows={4}
+                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
+              />
+              <p className="text-ink-400 text-xs mt-1.5">
+                {msg.length} characters · Edit freely before sending
+              </p>
+            </div>
+            <div>
+              <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    window.open(
+                      `https://wa.me/?text=${encodeURIComponent(msg)}`,
+                      "_blank",
+                    );
+                    onClose();
+                  }}
+                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
+                >
+                  <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="white"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-ink-800">WhatsApp</p>
+                    <p className="text-[10px] text-ink-500 mt-0.5">
+                      Opens WhatsApp
+                    </p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    window.open(
+                      `sms:?body=${encodeURIComponent(msg)}`,
+                      "_blank",
+                    );
+                    onClose();
+                  }}
+                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 hover:border-ink-300 py-4 px-3 rounded-xl transition-all hover:shadow-md group"
+                >
+                  <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Phone size={18} className="text-white" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-ink-800">SMS</p>
+                    <p className="text-[10px] text-ink-500 mt-0.5">
+                      Opens messages app
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Portal>
   );
 }
 
@@ -863,7 +1053,7 @@ function DeleteModal({
   );
 }
 
-// ─── Record Payment modal ─────────────────────────────────────────────────────
+// ─── Record Payment modal (with method + optional evidence) ───────────────────
 
 function RecordPaymentModal({
   debt,
@@ -871,38 +1061,22 @@ function RecordPaymentModal({
   onClose,
 }: {
   debt: DebtRecord;
-  onSave: (amount: number, note: string) => Promise<void>;
+  onSave: (
+    amount: number,
+    method: PaymentMethod,
+    note: string,
+    evidenceFile?: File,
+  ) => Promise<void>;
   onClose: () => void;
 }) {
   const outstanding = debt.amount - debt.amountPaid;
   const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<PaymentMethod>("cash");
   const [note, setNote] = useState("");
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const val = parseFloat(amount);
-    if (!val || val <= 0) {
-      setError("Enter a valid amount");
-      return;
-    }
-    if (val > outstanding) {
-      setError(
-        `Amount exceeds outstanding balance of ${formatNaira(outstanding)}`,
-      );
-      return;
-    }
-    setSaving(true);
-    try {
-      await onSave(val, note);
-      onClose();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to record payment");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const quickAmounts = [
     outstanding * 0.25,
@@ -911,11 +1085,35 @@ function RecordPaymentModal({
     outstanding,
   ].filter(Boolean);
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const val = parseFloat(amount);
+    if (!val || val <= 0) {
+      setError("Enter a valid amount");
+      return;
+    }
+    if (val > outstanding + 0.001) {
+      setError(
+        `Amount exceeds outstanding balance of ${formatNaira(outstanding)}`,
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(val, method, note, evidenceFile ?? undefined);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to record payment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <Portal>
       <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100">
+        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
             <div>
               <h2 className="font-heading font-bold text-lg text-ink-900">
                 Record Payment
@@ -931,70 +1129,150 @@ function RecordPaymentModal({
               <X size={16} />
             </button>
           </div>
-          <form
-            id="payment-form"
-            onSubmit={handleSubmit}
-            className="px-5 py-4 space-y-4"
-          >
-            <div>
-              <label className="block text-ink-600 text-sm font-medium mb-2">
-                Amount received (₦) *
-              </label>
-              <input
-                type="number"
-                required
-                min={1}
-                max={outstanding}
-                step="0.01"
-                placeholder="0"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value);
-                  setError("");
-                }}
-                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-lg font-bold focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-              />
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {quickAmounts.map((q, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setAmount(String(Math.round(q)))}
-                    className="text-xs bg-ink-100 hover:bg-jade/10 hover:text-jade-700 text-ink-600 font-medium px-2.5 py-1 rounded-lg transition-colors"
-                  >
-                    {i === quickAmounts.length - 1
-                      ? "Full"
-                      : `${[25, 50, 75][i]}%`}{" "}
-                    — {formatNaira(Math.round(q))}
-                  </button>
-                ))}
+
+          <div className="overflow-y-auto flex-1">
+            <form
+              id="payment-form"
+              onSubmit={handleSubmit}
+              className="px-5 py-4 space-y-4"
+            >
+              {/* Amount */}
+              <div>
+                <label className="block text-ink-600 text-sm font-medium mb-2">
+                  Amount received (₦) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={outstanding}
+                  step="0.01"
+                  placeholder="0"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    setError("");
+                  }}
+                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-lg font-bold focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                />
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {quickAmounts.map((q, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setAmount(String(Math.round(q)))}
+                      className="text-xs bg-ink-100 hover:bg-jade/10 hover:text-jade-700 text-ink-600 font-medium px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      {i === quickAmounts.length - 1
+                        ? "Full"
+                        : `${[25, 50, 75][i]}%`}{" "}
+                      — {formatNaira(Math.round(q))}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-ink-600 text-sm font-medium mb-2">
-                Note (optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Cash payment, bank transfer ref..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-              />
-            </div>
-            {error && (
-              <p className="text-coral-500 text-sm font-medium flex items-center gap-1.5">
-                <AlertTriangle size={14} />
-                {error}
-              </p>
-            )}
-          </form>
-          <div className="flex gap-3 px-5 py-4 border-t border-ink-100">
+
+              {/* Payment method */}
+              <div>
+                <label className="block text-ink-600 text-sm font-medium mb-2">
+                  Payment method
+                </label>
+                <PaymentMethodSelector value={method} onChange={setMethod} />
+              </div>
+
+              {/* Transfer evidence upload — only shown for transfer */}
+              {method === "transfer" && (
+                <div>
+                  <label className="block text-ink-600 text-sm font-medium mb-2">
+                    Transfer screenshot{" "}
+                    <span className="text-ink-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) =>
+                      setEvidenceFile(e.target.files?.[0] ?? null)
+                    }
+                  />
+                  {evidenceFile ? (
+                    <div className="flex items-center gap-3 bg-jade/5 border border-jade/20 rounded-xl p-3">
+                      <div className="w-10 h-10 rounded-lg bg-jade/10 flex items-center justify-center flex-shrink-0">
+                        {evidenceFile.type.startsWith("image/") ? (
+                          <img
+                            src={URL.createObjectURL(evidenceFile)}
+                            alt=""
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <FileText size={18} className="text-jade" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-ink-800 truncate">
+                          {evidenceFile.name}
+                        </p>
+                        <p className="text-xs text-ink-400">
+                          {(evidenceFile.size / 1024).toFixed(0)} KB
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEvidenceFile(null)}
+                        className="w-7 h-7 rounded-lg bg-coral-50 hover:bg-coral-100 text-coral-500 flex items-center justify-center transition-colors"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="w-full border-2 border-dashed border-ink-200 hover:border-jade/50 rounded-xl py-4 flex flex-col items-center gap-1.5 text-ink-400 hover:text-jade transition-all group"
+                    >
+                      <Upload
+                        size={20}
+                        className="group-hover:scale-110 transition-transform"
+                      />
+                      <span className="text-xs font-medium">
+                        Upload screenshot or PDF
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Note */}
+              <div>
+                <label className="block text-ink-600 text-sm font-medium mb-2">
+                  Note{" "}
+                  <span className="text-ink-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cash payment, bank transfer ref..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                />
+              </div>
+
+              {error && (
+                <p className="text-coral-500 text-sm font-medium flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  {error}
+                </p>
+              )}
+            </form>
+          </div>
+
+          <div className="flex gap-3 px-5 py-4 border-t border-ink-100 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors"
+              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 transition-colors disabled:opacity-40"
             >
               Cancel
             </button>
@@ -1063,6 +1341,15 @@ function DebtDetailPanel({
     debt.status === "overdue" ? getDaysOverdue(debt.dueDate || "") : 0;
   const evCount = debt.evidences?.length || 0;
   const payments = (debt as any).payments || [];
+  const items: any[] = (debt as any).items || [];
+
+  const methodIcon: Record<string, React.ReactNode> = {
+    cash: <Banknote size={12} />,
+    transfer: <Smartphone size={12} />,
+    pos: <CreditCard size={12} />,
+    cheque: <Receipt size={12} />,
+    other: <HelpCircle size={12} />,
+  };
 
   return (
     <Portal>
@@ -1090,6 +1377,7 @@ function DebtDetailPanel({
           </div>
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+            {/* Summary card */}
             <div className="bg-ink-900 rounded-2xl p-5 text-white">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -1107,7 +1395,7 @@ function DebtDetailPanel({
                   </p>
                 </div>
               </div>
-              <div className="mb-2">
+              <div>
                 <div className="flex justify-between text-xs mb-1.5">
                   <span className="text-ink-400">
                     {formatNaira(debt.amountPaid)} paid
@@ -1123,6 +1411,54 @@ function DebtDetailPanel({
               </div>
             </div>
 
+            {/* Items bought */}
+            {items.length > 0 && (
+              <div>
+                <h3 className="font-heading font-semibold text-ink-800 flex items-center gap-2 mb-3">
+                  <ShoppingCart size={15} className="text-jade" /> Items
+                  Purchased
+                </h3>
+                <div className="bg-ink-50 rounded-xl overflow-hidden border border-ink-100">
+                  <div className="grid grid-cols-[1fr_48px_64px_80px] gap-2 px-4 py-2 border-b border-ink-100">
+                    {["Item", "Qty", "Unit", "Price"].map((h) => (
+                      <p
+                        key={h}
+                        className="text-[10px] font-semibold uppercase tracking-wide text-ink-400"
+                      >
+                        {h}
+                      </p>
+                    ))}
+                  </div>
+                  {items.map((it: any, i: number) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[1fr_48px_64px_80px] gap-2 px-4 py-2.5 border-b border-ink-50 last:border-0"
+                    >
+                      <p className="text-ink-700 text-sm font-medium truncate">
+                        {it.name}
+                      </p>
+                      <p className="text-ink-500 text-sm text-center">
+                        {it.qty}
+                      </p>
+                      <p className="text-ink-400 text-sm">{it.unit || "—"}</p>
+                      <p className="text-ink-700 text-sm font-semibold">
+                        {formatNaira(it.unitPrice)}
+                      </p>
+                    </div>
+                  ))}
+                  <div className="flex justify-between px-4 py-2.5 bg-ink-100/50">
+                    <p className="text-ink-500 text-xs font-semibold uppercase tracking-wide">
+                      Total
+                    </p>
+                    <p className="font-heading font-bold text-ink-900 text-sm">
+                      {formatNaira(debt.amount)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Meta info */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-ink-50 rounded-xl p-3.5">
                 <div className="flex items-center gap-2 mb-1">
@@ -1192,6 +1528,7 @@ function DebtDetailPanel({
               </div>
             </div>
 
+            {/* Payment history */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-heading font-semibold text-ink-800 flex items-center gap-2">
@@ -1207,7 +1544,6 @@ function DebtDetailPanel({
                   </button>
                 )}
               </div>
-
               {payments.length === 0 ? (
                 <div className="bg-ink-50 rounded-xl p-5 text-center">
                   <CircleDollarSign
@@ -1221,27 +1557,61 @@ function DebtDetailPanel({
               ) : (
                 <div className="space-y-2">
                   {[...payments].reverse().map((p: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between bg-ink-50 rounded-xl px-4 py-3"
-                    >
-                      <div>
-                        <p className="text-ink-800 text-sm font-semibold">
-                          {formatNaira(p.amount)}
-                        </p>
-                        {p.note && (
-                          <p className="text-ink-400 text-xs mt-0.5 italic">
-                            {p.note}
+                    <div key={i} className="bg-ink-50 rounded-xl px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <p className="text-ink-800 text-sm font-semibold">
+                            {formatNaira(p.amount)}
                           </p>
-                        )}
+                          {p.method && (
+                            <span className="inline-flex items-center gap-1 bg-ink-100 text-ink-500 text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize">
+                              {methodIcon[p.method]}
+                              {p.method}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-ink-400 text-xs">
+                          {new Date(p.recordedAt).toLocaleDateString("en-NG", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
                       </div>
-                      <p className="text-ink-400 text-xs">
-                        {new Date(p.recordedAt).toLocaleDateString("en-NG", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
+                      {p.note && (
+                        <p className="text-ink-400 text-xs mt-0.5 italic">
+                          {p.note}
+                        </p>
+                      )}
+                      {/* Payment evidence thumbnail */}
+                      {p.evidence?.url && (
+                        <a
+                          href={p.evidence.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 flex items-center gap-2 bg-jade/5 hover:bg-jade/10 border border-jade/15 rounded-lg px-2.5 py-1.5 transition-colors w-fit"
+                        >
+                          {p.evidence.type === "image" ? (
+                            <img
+                              src={p.evidence.url}
+                              alt=""
+                              className="w-8 h-8 rounded object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <FileText
+                              size={16}
+                              className="text-jade flex-shrink-0"
+                            />
+                          )}
+                          <span className="text-jade-700 text-xs font-medium truncate max-w-[140px]">
+                            {p.evidence.name}
+                          </span>
+                          <Download
+                            size={11}
+                            className="text-jade-500 flex-shrink-0 ml-auto"
+                          />
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1290,19 +1660,23 @@ function DebtModal({
   onSave,
   onClose,
 }: {
-  initial: DebtForm;
+  initial: DebtFormV2;
   existingCustomers: string[];
-  onSave: (data: DebtForm) => Promise<void>;
+  onSave: (data: DebtFormV2) => Promise<void>;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState<DebtFormV2>(initial);
   const [useExisting, setUseExisting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const update = (k: keyof DebtForm, v: string) =>
+  const total = calcItemsTotal(form.items);
+
+  function update<K extends keyof DebtFormV2>(k: K, v: DebtFormV2[K]) {
     setForm((p) => ({ ...p, [k]: v }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (total <= 0) return;
     setSaving(true);
     try {
       await onSave(form);
@@ -1314,7 +1688,7 @@ function DebtModal({
   return (
     <Portal>
       <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
-        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+        <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
           <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
             <h2 className="font-heading font-bold text-lg text-ink-900">
               Add Debt Record
@@ -1326,31 +1700,29 @@ function DebtModal({
               <X size={16} />
             </button>
           </div>
+
           <div className="overflow-y-auto flex-1 px-5 py-4">
-            <form id="debt-form" className="space-y-4" onSubmit={handleSubmit}>
-              {existingCustomers.length > 0 && (
-                <div className="flex gap-2 p-1 bg-ink-100 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setUseExisting(false)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${!useExisting ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
-                  >
-                    New customer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUseExisting(true)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${useExisting ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
-                  >
-                    Existing customer
-                  </button>
-                </div>
-              )}
-              {useExisting ? (
-                <div>
-                  <label className="block text-ink-600 text-sm font-medium mb-2">
-                    Select customer *
-                  </label>
+            <form id="debt-form" className="space-y-5" onSubmit={handleSubmit}>
+              {/* Customer */}
+              <div>
+                <label className="block text-ink-600 text-sm font-medium mb-2">
+                  Customer *
+                </label>
+                {existingCustomers.length > 0 && (
+                  <div className="flex gap-2 p-1 bg-ink-100 rounded-xl mb-3">
+                    {["new", "existing"].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setUseExisting(t === "existing")}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${(useExisting ? "existing" : "new") === t ? "bg-white text-ink-900 shadow-sm" : "text-ink-500"}`}
+                      >
+                        {t === "new" ? "New customer" : "Existing customer"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {useExisting ? (
                   <select
                     required
                     value={form.customerName}
@@ -1364,78 +1736,54 @@ function DebtModal({
                       </option>
                     ))}
                   </select>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-ink-600 text-sm font-medium mb-2">
-                      Customer name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Full name"
-                      value={form.customerName}
-                      onChange={(e) => update("customerName", e.target.value)}
-                      className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-                    />
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Full name"
+                        value={form.customerName}
+                        onChange={(e) => update("customerName", e.target.value)}
+                        className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="tel"
+                        placeholder="Phone (optional)"
+                        value={form.phone}
+                        onChange={(e) => update("phone", e.target.value)}
+                        className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-ink-600 text-sm font-medium mb-2">
-                      Phone number
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="0801 234 5678"
-                      value={form.phone}
-                      onChange={(e) => update("phone", e.target.value)}
-                      className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-                    />
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              {/* Items */}
               <div>
-                <label className="block text-ink-600 text-sm font-medium mb-2">
-                  What did they buy? *
+                <label className="block text-ink-600 text-sm font-medium mb-2 flex items-center gap-1.5">
+                  <Package size={13} className="text-ink-400" />
+                  Items Purchased *
                 </label>
-                <textarea
-                  required
-                  rows={2}
-                  placeholder="e.g. Bag of rice (50kg) + Semovita x3"
-                  value={form.description}
-                  onChange={(e) => update("description", e.target.value)}
-                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
+                <LineItemEditor
+                  items={form.items}
+                  onChange={(items) => update("items", items)}
                 />
+                {total > 0 && (
+                  <div className="mt-3 bg-jade/5 border border-jade/15 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                    <p className="text-jade-700 text-sm font-medium">
+                      Total debt amount
+                    </p>
+                    <p className="font-heading font-bold text-jade-800 text-lg">
+                      {formatNaira(total)}
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-ink-600 text-sm font-medium mb-2">
-                    Total amount (₦) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    placeholder="15000"
-                    value={form.amount}
-                    onChange={(e) => update("amount", e.target.value)}
-                    className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-ink-600 text-sm font-medium mb-2">
-                    Amount paid (₦)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={form.amountPaid}
-                    onChange={(e) => update("amountPaid", e.target.value)}
-                    className="w-full bg-ink-50 border border-ink-200 rounded-xl px-3 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
-                  />
-                </div>
-              </div>
+
+              {/* Due date */}
               <div>
                 <label className="block text-ink-600 text-sm font-medium mb-2">
                   Due date
@@ -1447,8 +1795,24 @@ function DebtModal({
                   className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all"
                 />
               </div>
+
+              {/* Optional note */}
+              <div>
+                <label className="block text-ink-600 text-sm font-medium mb-2">
+                  Note{" "}
+                  <span className="text-ink-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Any extra info about this debt..."
+                  value={form.description}
+                  onChange={(e) => update("description", e.target.value)}
+                  className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
+                />
+              </div>
             </form>
           </div>
+
           <div className="flex gap-3 px-5 py-4 border-t border-ink-100 flex-shrink-0">
             <button
               type="button"
@@ -1461,8 +1825,8 @@ function DebtModal({
             <button
               type="submit"
               form="debt-form"
-              disabled={saving}
-              className="flex-[2] bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              disabled={saving || total <= 0}
+              className="flex-[2] bg-ink-900 hover:bg-ink-700 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <>
@@ -1490,7 +1854,7 @@ function DebtModal({
               ) : (
                 <>
                   <CheckCircle size={16} />
-                  Save Debt
+                  Save Debt · {formatNaira(total)}
                 </>
               )}
             </button>
@@ -1509,7 +1873,6 @@ export default function DebtorsPage() {
     loading,
     error,
     addDebt,
-    editDebt,
     removeDebt,
     updateEvidences,
     recordPayment,
@@ -1518,11 +1881,12 @@ export default function DebtorsPage() {
   const [filter, setFilter] = useState<
     "all" | "overdue" | "partial" | "cleared" | "pending"
   >("all");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
-  const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DebtRecord | null>(null);
   const [reminderDebt, setReminderDebt] = useState<DebtRecord | null>(null);
@@ -1530,6 +1894,47 @@ export default function DebtorsPage() {
   const [paymentDebt, setPaymentDebt] = useState<DebtRecord | null>(null);
   const [detailDebt, setDetailDebt] = useState<DebtRecord | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Debounce search input — 250 ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Client-side filter + search (works immediately; hook can also pass `search` to API)
+  const filtered = useMemo(() => {
+    return debts.filter((d) => {
+      const matchesFilter = filter === "all" || d.status === filter;
+      if (!matchesFilter) return false;
+      if (!debouncedSearch) return true;
+      const q = debouncedSearch.toLowerCase();
+      const itemsText = ((d as any).items || [])
+        .map((it: any) => it.name)
+        .join(" ")
+        .toLowerCase();
+      return (
+        d.customerName.toLowerCase().includes(q) ||
+        (d.description || "").toLowerCase().includes(q) ||
+        itemsText.includes(q)
+      );
+    });
+  }, [debts, filter, debouncedSearch]);
+
+  const existingCustomers = useMemo(
+    () => [...new Set(debts.map((d) => d.customerName))],
+    [debts],
+  );
+
+  const counts = useMemo(
+    () => ({
+      all: debts.length,
+      overdue: debts.filter((d) => d.status === "overdue").length,
+      partial: debts.filter((d) => d.status === "partial").length,
+      cleared: debts.filter((d) => d.status === "cleared").length,
+      pending: debts.filter((d) => d.status === "pending").length,
+    }),
+    [debts],
+  );
 
   if (loading) return <PageSkeleton />;
 
@@ -1547,29 +1952,26 @@ export default function DebtorsPage() {
       </div>
     );
 
-  const filtered = debts.filter((d) => {
-    const matchesFilter = filter === "all" || d.status === filter;
-    const matchesSearch =
-      d.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      d.description.toLowerCase().includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const existingCustomers = [...new Set(debts.map((d) => d.customerName))];
-
-  const counts = {
-    all: debts.length,
-    overdue: debts.filter((d) => d.status === "overdue").length,
-    partial: debts.filter((d) => d.status === "partial").length,
-    cleared: debts.filter((d) => d.status === "cleared").length,
-    pending: debts.filter((d) => d.status === "pending").length,
-  };
-
-  async function handleAdd(form: DebtForm) {
+  async function handleAdd(form: DebtFormV2) {
     try {
       setActionError(null);
-      await addDebt(form);
+      // Map DebtFormV2 → whatever your useDebts.addDebt expects
+      await addDebt({
+        customerName: form.customerName,
+        phone: form.phone,
+        description: form.description || itemsToDescription(form.items),
+        items: form.items.map((it) => ({
+          name: it.name,
+          qty: parseFloat(String(it.qty)),
+          unit: it.unit,
+          unitPrice: parseFloat(String(it.unitPrice)),
+        })),
+        amount: String(calcItemsTotal(form.items)),
+        amountPaid: "0",
+        dueDate: form.dueDate,
+      } as any);
       setAddOpen(false);
+      setToast({ message: "Debt record added", type: "success" });
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : "Failed to add debt");
     }
@@ -1581,6 +1983,7 @@ export default function DebtorsPage() {
       setActionError(null);
       await removeDebt(deleteTarget.id);
       setDeleteTarget(null);
+      setToast({ message: "Debt deleted", type: "success" });
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "Failed to delete debt",
@@ -1588,24 +1991,29 @@ export default function DebtorsPage() {
     }
   }
 
-  async function handleRecordPayment(amount: number, note: string) {
+  async function handleRecordPayment(
+    amount: number,
+    method: PaymentMethod,
+    note: string,
+    evidenceFile?: File,
+  ) {
     if (!paymentDebt) return;
-    await recordPayment(paymentDebt.id, amount, note);
+    await recordPayment(paymentDebt.id, amount, note, method, evidenceFile);
     if (detailDebt?.id === paymentDebt.id) {
       const updated = debts.find((d) => d.id === paymentDebt.id);
       if (updated) setDetailDebt(updated);
     }
+    setToast({ message: "Payment recorded", type: "success" });
   }
 
-  // NOTE: EvidencePanel uses onUpdate(id, evidences) — matches Doc 1's local FileReader pattern
   async function handleEvidenceUpdate(debtId: string, evidences: Evidence[]) {
     try {
       await updateEvidences(debtId, evidences);
       if (evidenceDebt?.id === debtId)
-        setEvidenceDebt((prev) => (prev ? { ...prev, evidences } : prev));
+        setEvidenceDebt((p) => (p ? { ...p, evidences } : p));
       if (detailDebt?.id === debtId)
-        setDetailDebt((prev) => (prev ? { ...prev, evidences } : prev));
-    } catch (err: unknown) {
+        setDetailDebt((p) => (p ? { ...p, evidences } : p));
+    } catch (err) {
       console.error("Evidence sync failed:", err);
     }
   }
@@ -1647,11 +2055,12 @@ export default function DebtorsPage() {
           </button>
         </div>
 
+        {/* Search */}
         <div className="flex items-center gap-2 bg-white border border-ink-100 rounded-xl px-4 py-2.5 mb-4 focus-within:border-jade/40 focus-within:ring-2 focus-within:ring-jade/10 transition-all">
           <Search size={15} className="text-ink-400 flex-shrink-0" />
           <input
             type="text"
-            placeholder="Search by name or description..."
+            placeholder="Search by name, item, or description..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="bg-transparent text-sm text-ink-700 placeholder-ink-400 w-full"
@@ -1666,6 +2075,7 @@ export default function DebtorsPage() {
           )}
         </div>
 
+        {/* Filter tabs */}
         <div
           className="flex gap-2 overflow-x-auto pb-1 mb-5"
           style={{ scrollbarWidth: "none" }}
@@ -1694,22 +2104,21 @@ export default function DebtorsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-ink-100 bg-ink-50/50">
-                  <th className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide">
-                    Customer
-                  </th>
-                  <th className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide">
-                    Description
-                  </th>
-                  <th className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide">
-                    Amount
-                  </th>
-                  <th className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide">
-                    Progress
-                  </th>
-                  <th className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide">
-                    Status
-                  </th>
-                  <th className="px-5 py-3.5 w-32" />
+                  {[
+                    "Customer",
+                    "Items",
+                    "Amount",
+                    "Progress",
+                    "Status",
+                    "",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left px-5 py-3.5 text-ink-500 text-xs font-semibold uppercase tracking-wide"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
@@ -1721,6 +2130,7 @@ export default function DebtorsPage() {
                     debt.status === "overdue"
                       ? getDaysOverdue(debt.dueDate || "")
                       : 0;
+                  const items: any[] = (debt as any).items || [];
                   return (
                     <tr
                       key={debt.id}
@@ -1762,9 +2172,23 @@ export default function DebtorsPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="text-ink-600 text-sm max-w-[200px] truncate">
-                          {debt.description}
-                        </p>
+                        {items.length > 0 ? (
+                          <div>
+                            <p className="text-ink-700 text-sm font-medium truncate max-w-[160px]">
+                              {items[0].name}
+                            </p>
+                            {items.length > 1 && (
+                              <p className="text-ink-400 text-xs">
+                                +{items.length - 1} more item
+                                {items.length > 2 ? "s" : ""}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-ink-500 text-sm truncate max-w-[160px]">
+                            {debt.description}
+                          </p>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         <p className="font-heading font-bold text-ink-900">
@@ -1846,10 +2270,12 @@ export default function DebtorsPage() {
                 <Clock size={24} className="text-ink-400" />
               </div>
               <p className="font-heading font-semibold text-ink-600 text-lg">
-                No debts found
+                {debouncedSearch ? "No results found" : "No debts found"}
               </p>
               <p className="text-ink-400 text-sm mt-1">
-                Try adjusting your search or filter
+                {debouncedSearch
+                  ? `Nothing matched "${debouncedSearch}"`
+                  : "Try adjusting your filter"}
               </p>
             </div>
           )}
@@ -1867,6 +2293,7 @@ export default function DebtorsPage() {
                 : 0;
             const outstanding = debt.amount - debt.amountPaid;
             const evCount = debt.evidences?.length || 0;
+            const items: any[] = (debt as any).items || [];
             return (
               <div
                 key={debt.id}
@@ -1897,9 +2324,17 @@ export default function DebtorsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-ink-400 text-xs truncate">
-                        {debt.description}
-                      </p>
+                      {/* Item summary on mobile */}
+                      {items.length > 0 ? (
+                        <p className="text-ink-400 text-xs truncate">
+                          {items[0].name}
+                          {items.length > 1 ? ` +${items.length - 1} more` : ""}
+                        </p>
+                      ) : (
+                        <p className="text-ink-400 text-xs truncate">
+                          {debt.description}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div
@@ -1972,10 +2407,12 @@ export default function DebtorsPage() {
                 <Clock size={22} className="text-ink-400" />
               </div>
               <p className="font-heading font-semibold text-ink-600">
-                No debts found
+                {debouncedSearch ? "No results found" : "No debts found"}
               </p>
               <p className="text-ink-400 text-sm mt-1">
-                Try adjusting your search or filter
+                {debouncedSearch
+                  ? `Nothing matched "${debouncedSearch}"`
+                  : "Try adjusting your filter"}
               </p>
             </div>
           )}
@@ -2003,7 +2440,6 @@ export default function DebtorsPage() {
             onClose={() => setReminderDebt(null)}
           />
         )}
-        {/* EvidencePanel from Doc 1: FileReader + thumbnail grid + notes + delete + lightbox */}
         {evidenceDebt && (
           <EvidencePanel
             debt={evidenceDebt}
