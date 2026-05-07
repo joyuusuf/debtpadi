@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 
-const API = "http://localhost:5000";
+const API =
+  process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
+  "http://localhost:5000";
 
 function formatNaira(amount: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -105,82 +107,46 @@ export default function DashboardPage() {
   } | null>(null);
 
   useEffect(() => {
-    // 1. Check token first
     const token = localStorage.getItem("debtpadi_token");
     if (!token) {
-      window.location.href = "/auth/signin"; // Hard redirect
+      window.location.href = "/auth/signin";
       return;
     }
 
-    // 2. Load user from localStorage
     try {
-      const rawUser = localStorage.getItem("debtpadi_user");
-      if (rawUser) {
-        const userData = JSON.parse(rawUser);
-        setUser({
-          name: userData.name || "",
-          businessName: userData.businessName || "",
-        });
+      const raw = localStorage.getItem("debtpadi_user");
+      if (raw) {
+        const u = JSON.parse(raw);
+        setUser({ name: u.name || "", businessName: u.businessName || "" });
       }
     } catch {
-      console.error("Failed to load user from localStorage");
+      /* ignore */
     }
 
-    // 3. Fetch dashboard data
-    console.log("Dashboard token:", token ? "exists" : "missing");
     fetch(`${API}/api/dashboard/stats`, {
-      credentials: "include",
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => {
+        if (r.status === 401) {
+          localStorage.removeItem("debtpadi_token");
+          window.location.href = "/auth/signin";
+          return null;
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then((json) => {
-        console.log("Dashboard response:", json);
-        if (json.success) {
-          setData(json.data);
-        } else {
-          setError(json.error || "Failed to load dashboard");
-          // Clear invalid session
-          localStorage.removeItem("debtpadi_user");
-          localStorage.removeItem("debtpadi_token");
-          window.location.href = "/auth/signin";
-        }
-      })
-      .catch((err) => {
-        console.error("Dashboard fetch error:", err);
-        setError("Network error. Please refresh.");
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  // Dashboard useEffect
-  useEffect(() => {
-    const token = localStorage.getItem("debtpadi_token");
-    console.log("Dashboard token:", token ? "exists" : "missing"); // Debug
-
-    fetch(`${API}/api/dashboard/stats`, {
-      credentials: "include", // ✅ Sends cookie automatically
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` }), // ✅ Backup header
-      },
-    })
-      .then((r) => r.json())
-      .then((json) => {
-        console.log("Dashboard response:", json); // Debug
+        if (!json) return;
         if (json.success) setData(json.data);
-        else setError("Failed to load dashboard.");
+        else setError(json.error || "Failed to load dashboard");
       })
-      .catch(() => setError("Network error."))
+      .catch(() => setError("Network error. Please refresh."))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <DashboardSkeleton />;
 
-  if (error || !data) {
+  if (error || !data)
     return (
       <>
         <TopBar />
@@ -189,41 +155,39 @@ export default function DashboardPage() {
         </div>
       </>
     );
-  }
 
   const today = new Date().toLocaleDateString("en-NG", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
-
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   return (
     <>
       <TopBar />
-      <div className="px-6 py-8 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto pb-24 sm:pb-8">
         {/* Welcome */}
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
             <p className="text-ink-400 text-sm mb-1">
               {today} · {user?.businessName ?? ""}
             </p>
-            <h1 className="font-heading text-3xl font-bold text-ink-900">
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink-900">
               {getGreeting()}, {firstName}
             </h1>
           </div>
+          {/* Desktop CTA */}
           <Link
             href="/debtors"
             className="hidden sm:flex items-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg flex-shrink-0"
           >
-            <Plus size={16} />
-            Add Debt
+            <Plus size={16} /> Add Debt
           </Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
           {[
             {
               label: "Total Owed to You",
@@ -264,9 +228,9 @@ export default function DashboardPage() {
           ].map((stat, i) => (
             <div
               key={i}
-              className={`bg-white border ${stat.border} rounded-2xl p-5 card-hover`}
+              className={`bg-white border ${stat.border} rounded-2xl p-4 sm:p-5 card-hover`}
             >
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-3 sm:mb-4">
                 <p className="text-ink-500 text-xs font-medium leading-snug">
                   {stat.label}
                 </p>
@@ -277,7 +241,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <p
-                className={`font-heading font-bold text-2xl ${stat.color} leading-none mb-1`}
+                className={`font-heading font-bold text-xl sm:text-2xl ${stat.color} leading-none mb-1`}
               >
                 {stat.value}
               </p>
@@ -289,7 +253,7 @@ export default function DashboardPage() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Overdue Debts */}
           <div className="lg:col-span-2 bg-white border border-ink-100 rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-ink-50 flex items-center justify-between">
+            <div className="px-5 sm:px-6 py-4 border-b border-ink-50 flex items-center justify-between">
               <div>
                 <h2 className="font-heading font-semibold text-ink-900">
                   Overdue Debts
@@ -319,11 +283,12 @@ export default function DashboardPage() {
               ) : (
                 data.overdueDebts.map((debt, i) => {
                   const days = getDaysOverdue(debt.dueDate);
-                  const progress = (debt.amountPaid / debt.amount) * 100;
+                  const progress =
+                    debt.amount > 0 ? (debt.amountPaid / debt.amount) * 100 : 0;
                   return (
                     <div
                       key={debt._id ?? i}
-                      className="px-6 py-4 flex items-center gap-4 table-row-hover"
+                      className="px-5 sm:px-6 py-4 flex items-center gap-4 table-row-hover"
                     >
                       <div className="w-10 h-10 rounded-xl bg-coral-50 flex items-center justify-center flex-shrink-0">
                         <span className="font-heading font-bold text-coral-500 text-sm">
@@ -398,13 +363,7 @@ export default function DashboardPage() {
                       className="px-5 py-3.5 flex items-center gap-3"
                     >
                       <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          a.type === "cleared"
-                            ? "bg-jade/10"
-                            : a.type === "payment"
-                              ? "bg-amber-50"
-                              : "bg-ink-100"
-                        }`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${a.type === "cleared" ? "bg-jade/10" : a.type === "payment" ? "bg-amber-50" : "bg-ink-100"}`}
                       >
                         {a.type === "cleared" ? (
                           <CheckCircle size={13} className="text-jade" />
@@ -477,6 +436,15 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Mobile FAB — same pattern as debtors page ── */}
+      <Link
+        href="/debtors"
+        className="sm:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2.5 bg-ink-900 hover:bg-ink-700 active:scale-95 text-white font-semibold text-sm px-5 py-3.5 rounded-2xl shadow-xl shadow-ink-900/30 transition-all"
+        style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))" }}
+      >
+        <Plus size={18} /> Add Debt
+      </Link>
     </>
   );
 }

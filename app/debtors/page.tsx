@@ -244,42 +244,45 @@ function ReminderModal({
   onClose: () => void;
 }) {
   const outstanding = debt.amount - debt.amountPaid;
-  const evCount = debt.evidences?.length || 0;
+  const evidences = debt.evidences || [];
   const daysOverdue = debt.dueDate ? getDaysOverdue(debt.dueDate) : 0;
-  const [includeEvidence, setIncludeEvidence] = useState(false);
-  const [uploadingEvidence, setUploadingEvidence] = useState(false);
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
+
   const defaultMsg = `Hello ${debt.customerName}, this is a friendly reminder that you have an outstanding balance of ${formatNaira(outstanding)} with us. Kindly make payment at your earliest convenience. Thank you.`;
   const [msg, setMsg] = useState(defaultMsg);
+  const [includeEvidence, setIncludeEvidence] = useState(evidences.length > 0);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   const {
     generate,
     message: aiMessage,
     loading: aiLoading,
   } = useWhatsappReminder();
-
   useEffect(() => {
     if (aiMessage) setMsg(aiMessage);
   }, [aiMessage]);
 
-  function buildEvidenceText() {
-    if (!includeEvidence || !debt.evidences?.length) return "";
-    const names = debt.evidences.map((e) => e.name).join(", ");
-    return `\n\nAttached evidence: ${names}`;
+  // Build the full message with real CDN links
+  function buildFullMessage() {
+    if (!includeEvidence || evidences.length === 0) return msg;
+    const links = evidences
+      .map((ev, i) => `${i + 1}. ${ev.name}\n   ${ev.url}`)
+      .join("\n");
+    return `${msg}\n\n📎 Evidence (${evidences.length} file${evidences.length !== 1 ? "s" : ""}):\n${links}`;
   }
 
   function sendWhatsApp() {
-    const fullMsg = msg + buildEvidenceText();
-    window.open(`https://wa.me/?text=${encodeURIComponent(fullMsg)}`, "_blank");
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(buildFullMessage())}`,
+      "_blank",
+    );
     onClose();
   }
 
   function sendSMS() {
-    const fullMsg = msg + buildEvidenceText();
-    window.open(`sms:?body=${encodeURIComponent(fullMsg)}`, "_blank");
+    window.open(
+      `sms:?body=${encodeURIComponent(buildFullMessage())}`,
+      "_blank",
+    );
     onClose();
   }
 
@@ -287,6 +290,7 @@ function ReminderModal({
     <Portal>
       <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4 bg-ink-900/60 backdrop-blur-sm">
         <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-fade-up max-h-[92vh] flex flex-col">
+          {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 flex-shrink-0">
             <div>
               <h2 className="font-heading font-bold text-lg text-ink-900">
@@ -309,106 +313,135 @@ function ReminderModal({
           </div>
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {/* Evidence toggle */}
-            {evCount > 0 && (
-              <button
-                onClick={() => setIncludeEvidence(!includeEvidence)}
-                className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${includeEvidence ? "border-jade/40 bg-jade/5" : "border-ink-100 bg-ink-50 hover:border-ink-200"}`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${includeEvidence ? "bg-jade/15" : "bg-ink-100"}`}
-                >
-                  <Paperclip
-                    size={15}
-                    className={includeEvidence ? "text-jade" : "text-ink-400"}
-                  />
-                </div>
-                <div className="flex-1 text-left">
-                  <p
-                    className={`text-sm font-semibold ${includeEvidence ? "text-jade-700" : "text-ink-600"}`}
+            {/* Evidence section — always shown if files exist */}
+            {evidences.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-ink-600 text-sm font-medium">
+                    Evidence ({evidences.length} file
+                    {evidences.length !== 1 ? "s" : ""})
+                  </p>
+                  {/* Toggle whether links are appended to message */}
+                  <button
+                    onClick={() => setIncludeEvidence((v) => !v)}
+                    className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                      includeEvidence
+                        ? "bg-jade/15 text-jade-700"
+                        : "bg-ink-100 text-ink-500 hover:bg-ink-200"
+                    }`}
                   >
-                    Include {evCount} evidence file{evCount !== 1 ? "s" : ""}
-                  </p>
-                  <p className="text-xs text-ink-400 mt-0.5">
-                    File names will be listed in the message
-                  </p>
+                    <Paperclip size={11} />
+                    {includeEvidence ? "Links included ✓" : "Include links"}
+                  </button>
                 </div>
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${includeEvidence ? "border-jade bg-jade" : "border-ink-300"}`}
-                >
-                  {includeEvidence && (
-                    <CheckCircle size={12} className="text-white fill-white" />
-                  )}
-                </div>
-              </button>
-            )}
 
-            {evCount === 0 && (
+                {/* Thumbnail grid */}
+                <div className="flex flex-wrap gap-2">
+                  {evidences.map((ev, i) => (
+                    <button
+                      key={ev.id}
+                      onClick={() => setLightboxIdx(i)}
+                      className="relative group w-16 h-16 rounded-xl overflow-hidden border border-ink-100 hover:border-jade/40 transition-colors flex-shrink-0"
+                      title={ev.name}
+                    >
+                      {ev.type === "image" ? (
+                        <img
+                          src={ev.url}
+                          alt={ev.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-ink-100 flex flex-col items-center justify-center gap-1">
+                          <FileText size={20} className="text-ink-400" />
+                          <span className="text-[9px] text-ink-400 uppercase">
+                            {ev.name.split(".").pop()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-ink-900/0 group-hover:bg-ink-900/20 transition-all flex items-center justify-center">
+                        <ZoomIn
+                          size={14}
+                          className="text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {includeEvidence && (
+                  <div className="bg-jade/5 border border-jade/20 rounded-xl px-3 py-2.5">
+                    <p className="text-jade-700 text-xs leading-relaxed">
+                      ✓ Cloudinary download links will be appended so the
+                      recipient can view and save each file.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
               <div className="bg-ink-50 border border-ink-100 rounded-xl p-3.5 flex items-center gap-3">
                 <div className="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Paperclip size={15} className="text-ink-400" />
                 </div>
                 <p className="text-ink-500 text-xs">
-                  No evidence uploaded — add files via the evidence panel
+                  No evidence uploaded — add files via the evidence panel first.
                 </p>
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <p className="text-ink-600 text-sm font-medium">Message</p>
-              <button
-                onClick={() =>
-                  generate({
-                    customerName: debt.customerName,
-                    amountOwed: outstanding,
-                    daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
-                    businessName: "Titilayo Farms & Agro Supplies",
-                  })
-                }
-                disabled={aiLoading}
-                className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
-              >
-                {aiLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin w-3 h-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>✦ AI Generate</>
-                )}
-              </button>
-            </div>
-
+            {/* Message */}
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-ink-600 text-sm font-medium">Message</p>
+                <button
+                  onClick={() =>
+                    generate({
+                      customerName: debt.customerName,
+                      amountOwed: outstanding,
+                      daysOverdue: daysOverdue > 0 ? daysOverdue : 0,
+                      businessName: "DebtPadi",
+                    })
+                  }
+                  disabled={aiLoading}
+                  className="flex items-center gap-1.5 text-xs bg-jade/10 hover:bg-jade/20 text-jade-700 font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  {aiLoading ? (
+                    <>
+                      <svg
+                        className="animate-spin w-3 h-3"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v8H4z"
+                        />
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    <>✦ AI Generate</>
+                  )}
+                </button>
+              </div>
               <textarea
                 value={msg}
                 onChange={(e) => setMsg(e.target.value)}
                 rows={4}
                 className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
               />
-              <p className="text-ink-400 text-xs mt-1.5">
-                {msg.length} characters
-              </p>
+              <p className="text-ink-400 text-xs mt-1">{msg.length} chars</p>
             </div>
 
+            {/* Channels */}
             <div>
               <p className="text-ink-600 text-sm font-medium mb-3">Send via</p>
               <div className="grid grid-cols-2 gap-3">
@@ -428,7 +461,11 @@ function ReminderModal({
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-bold text-ink-800">WhatsApp</p>
-                    <p className="text-[10px] text-ink-500">Opens WhatsApp</p>
+                    <p className="text-[10px] text-ink-500">
+                      {includeEvidence && evidences.length > 0
+                        ? "Msg + links"
+                        : "Opens WhatsApp"}
+                    </p>
                   </div>
                 </button>
                 <button
@@ -440,7 +477,11 @@ function ReminderModal({
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-bold text-ink-800">SMS</p>
-                    <p className="text-[10px] text-ink-500">Opens messages</p>
+                    <p className="text-[10px] text-ink-500">
+                      {includeEvidence && evidences.length > 0
+                        ? "Msg + links"
+                        : "Opens messages"}
+                    </p>
                   </div>
                 </button>
               </div>
@@ -448,6 +489,15 @@ function ReminderModal({
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {lightboxIdx !== null && (
+        <EvidenceLightbox
+          evidences={evidences}
+          startIndex={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
     </Portal>
   );
 }
