@@ -18,8 +18,9 @@ interface UseDebtsReturn {
   debts: DebtRecord[];
   loading: boolean;
   error: string | null;
+  setDebts: React.Dispatch<React.SetStateAction<DebtRecord[]>>; // ← exposed so the page can sync evidence
   refresh: () => Promise<void>;
-  addDebt: (form: DebtForm) => Promise<void>;
+  addDebt: (form: DebtForm) => Promise<DebtRecord>;
   editDebt: (id: string, form: DebtForm) => Promise<void>;
   removeDebt: (id: string) => Promise<void>;
   updateEvidences: (debtId: string, evidences: Evidence[]) => Promise<void>;
@@ -55,26 +56,32 @@ export function useDebts(): UseDebtsReturn {
     refresh();
   }, [refresh]);
 
+  // Returns the newly created DebtRecord so callers can upload evidence against its id
   const addDebt = useCallback(
-    async (form: DebtForm) => {
+    async (form: DebtForm): Promise<DebtRecord> => {
       const amount = parseFloat(form.amount);
       const amountPaid = parseFloat(form.amountPaid) || 0;
 
       let customerId: string;
       const existing = debts.find(
-        (d) => d.customerName.toLowerCase() === form.customerName.trim().toLowerCase()
+        (d) =>
+          d.customerName.toLowerCase() === form.customerName.trim().toLowerCase()
       );
 
       if (existing) {
         customerId = existing.customerId;
       } else {
         const phone = form.phone.trim() || "00000000000";
-        const custRes = await customersApi.create({ name: form.customerName.trim(), phone });
+        const custRes = await customersApi.create({
+          name: form.customerName.trim(),
+          phone,
+        });
         customerId = custRes.data._id;
       }
 
       const dueDate =
-        form.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
+        form.dueDate ||
+        new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
 
       const res = await debtsApi.create({
         customerId,
@@ -90,9 +97,12 @@ export function useDebts(): UseDebtsReturn {
           amount: amountPaid,
           note: "Initial payment recorded at creation",
         });
-        setDebts((prev) => [apiDebtToDebtRecord(payRes.data), ...prev]);
+        const withPayment = apiDebtToDebtRecord(payRes.data);
+        setDebts((prev) => [withPayment, ...prev]);
+        return withPayment;
       } else {
         setDebts((prev) => [newDebt, ...prev]);
+        return newDebt;
       }
     },
     [debts]
@@ -133,41 +143,48 @@ export function useDebts(): UseDebtsReturn {
     setDebts((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
-  const updateEvidences = useCallback(async (debtId: string, evidences: Evidence[]) => {
-    const estimatedSize = estimateEvidenceSize(evidences);
-    if (estimatedSize > MAX_EVIDENCE_PAYLOAD_BYTES) {
-      throw new Error(
-        `Evidence files are too large (${(estimatedSize / 1024 / 1024).toFixed(1)}MB). ` +
-        `Please use smaller images or fewer files.`
+  const updateEvidences = useCallback(
+    async (debtId: string, evidences: Evidence[]) => {
+      const estimatedSize = estimateEvidenceSize(evidences);
+      if (estimatedSize > MAX_EVIDENCE_PAYLOAD_BYTES) {
+        throw new Error(
+          `Evidence files are too large (${(estimatedSize / 1024 / 1024).toFixed(1)}MB). ` +
+            `Please use smaller images or fewer files.`
+        );
+      }
+
+      // Optimistic update
+      setDebts((prev) =>
+        prev.map((d) => (d.id === debtId ? { ...d, evidences } : d))
       );
-    }
 
-    // Optimistic update
-    setDebts((prev) =>
-      prev.map((d) => (d.id === debtId ? { ...d, evidences } : d))
-    );
+      // Persist
+      const apiEvidences = debtRecordEvidencesToApi(evidences);
+      const res = await debtsApi.updateEvidences(debtId, apiEvidences);
 
-    // Persist — PUT /debts/:id with { evidences: [...] }
-    const apiEvidences = debtRecordEvidencesToApi(evidences);
-    const res = await debtsApi.updateEvidences(debtId, apiEvidences);
+      // Sync back with server response
+      const serverDebt = apiDebtToDebtRecord(res.data);
+      setDebts((prev) =>
+        prev.map((d) => (d.id === debtId ? serverDebt : d))
+      );
+    },
+    []
+  );
 
-    // Sync back with server response
-    const serverDebt = apiDebtToDebtRecord(res.data);
-    setDebts((prev) =>
-      prev.map((d) => (d.id === debtId ? serverDebt : d))
-    );
-  }, []);
-
-  const recordPayment = useCallback(async (debtId: string, amount: number, note?: string) => {
-    const res = await debtsApi.recordPayment(debtId, { amount, note });
-    const updated = apiDebtToDebtRecord(res.data);
-    setDebts((prev) => prev.map((d) => (d.id === debtId ? updated : d)));
-  }, []);
+  const recordPayment = useCallback(
+    async (debtId: string, amount: number, note?: string) => {
+      const res = await debtsApi.recordPayment(debtId, { amount, note });
+      const updated = apiDebtToDebtRecord(res.data);
+      setDebts((prev) => prev.map((d) => (d.id === debtId ? updated : d)));
+    },
+    []
+  );
 
   return {
     debts,
     loading,
     error,
+    setDebts,   // ← now exposed
     refresh,
     addDebt,
     editDebt,
