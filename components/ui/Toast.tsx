@@ -1,75 +1,50 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { CheckCircle, XCircle, X } from "lucide-react";
 
-type ToastType = "success" | "error";
-
 interface ToastProps {
-    message: string;
-    type: ToastType;
-    onClose: () => void;
+  message: string;
+  type?: "success" | "error" | "info";
+  onClose?: () => void;
+  duration?: number; // ms, default 4000; set to 0 to disable auto-close
 }
 
-export function Toast({ message, type, onClose }: ToastProps) {
-    const [visible, setVisible] = useState(false);
+export function Toast({
+  message,
+  type = "info",
+  onClose,
+  duration = 4000,
+}: ToastProps) {
+  useEffect(() => {
+    if (!duration || !onClose) return;
+    const t = setTimeout(onClose, duration);
+    return () => clearTimeout(t);
+  }, [duration, onClose]);
 
-    useEffect(() => {
-        // Animate in
-        const enter = setTimeout(() => setVisible(true), 10);
-        // Auto-dismiss after 4s
-        const exit = setTimeout(() => {
-            setVisible(false);
-            setTimeout(onClose, 300);
-        }, 4000);
+  const styles = {
+    success: "bg-jade text-white",
+    error: "bg-coral-500 text-white",
+    info: "bg-ink-800 text-white",
+  }[type];
 
-        return () => {
-            clearTimeout(enter);
-            clearTimeout(exit);
-        };
-    }, [onClose]);
+  const Icon = type === "success" ? CheckCircle : type === "error" ? XCircle : null;
 
-    return (
-        <div
-            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[999] transition-all duration-300 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
-                }`}
+  return (
+    <div
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-medium min-w-[240px] max-w-xs ${styles} animate-fade-up`}
+      role="alert"
+    >
+      {Icon && <Icon size={18} className="flex-shrink-0" />}
+      <span className="flex-1">{message}</span>
+      {onClose && (
+        <button
+          onClick={onClose}
+          aria-label="Dismiss"
+          className="ml-1 opacity-70 hover:opacity-100 transition-opacity"
         >
-            <div
-                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl shadow-2xl border backdrop-blur-xl min-w-[280px] max-w-[420px] ${type === "success"
-                    ? "bg-ink-900/95 border-jade/20"
-                    : "bg-ink-900/95 border-red-500/20"
-                    }`}
-            >
-                {/* Icon */}
-                {type === "success" ? (
-                    <CheckCircle size={18} className="text-jade cursor-pointer flex-shrink-0" />
-                ) : (
-                    <XCircle size={18} className="text-red-400 cursor-pointer flex-shrink-0" />
-                )}
-
-                {/* Message */}
-                <p className="text-sm font-medium text-white flex-1 leading-snug">
-                    {message}
-                </p>
-
-                {/* Progress bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-2xl overflow-hidden">
-                    <div
-                        className={`h-full animate-shrink ${type === "success" ? "bg-jade" : "bg-red-400"
-                            }`}
-                    />
-                </div>
-
-                {/* Close */}
-                <button
-                    onClick={() => {
-                        setVisible(false);
-                        setTimeout(onClose, 300);
-                    }}
-                    className="text-ink-500 hover:text-white transition-colors flex-shrink-0 ml-1"
-                >
-                    <X size={14} />
-                </button>
-            </div>
-        </div>
-    );
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
 }

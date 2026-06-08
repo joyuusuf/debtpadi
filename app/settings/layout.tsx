@@ -1,12 +1,9 @@
 import Sidebar from "@/components/layout/Sidebar";
-
-export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-ink-50">
       <Sidebar />
-      <main className="md:ml-60">
-        {children}
-      </main>
+      <main className="md:ml-60">{children}</main>
     </div>
   );
 }

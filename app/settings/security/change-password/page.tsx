@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { auth as authApi } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -144,10 +145,17 @@ export default function ChangePasswordPage() {
     setLoading(true);
     setSubmitErr("");
 
-    await new Promise((r) => setTimeout(r, 1800));
-
-    setLoading(false);
-    setSuccess(true);
+    try {
+      await authApi.changePassword({
+        currentPassword: current.value,
+        newPassword: newPw.value,
+      });
+      setSuccess(true);
+    } catch (err: unknown) {
+      setSubmitErr(err instanceof Error ? err.message : "Failed to change password");
+    } finally {
+      setLoading(false);
+    }
 
     setCurrent({
       value: "",

@@ -1,220 +1,166 @@
 "use client";
-import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
+  BookOpen,
   Users,
-  FileText,
+  CreditCard,
   BarChart3,
+  Bell,
   Settings,
   LogOut,
-  CreditCard,
-  Bell,
+  Menu,
+  X,
+  ChevronUp,
+  Zap,
 } from "lucide-react";
-import clsx from "clsx";
+import { useAuth } from "@/context/AuthContext";
+import { useAvatar } from "@/context/AvatarContext";
+import Image from "next/image";
 
-const nav = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Debtors", href: "/debtors", icon: CreditCard },
-  { label: "Customers", href: "/customers", icon: Users },
-  { label: "Payments", href: "/payments", icon: FileText },
-  { label: "Reports", href: "/reports", icon: BarChart3 },
+const NAV = [
+  { href: "/dashboard",  label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/debtors",    label: "Debtors",      icon: BookOpen        },
+  { href: "/customers",  label: "Customers",    icon: Users           },
+  { href: "/payments",   label: "Payments",     icon: CreditCard      },
+  { href: "/reports",    label: "Reports",      icon: BarChart3       },
+  { href: "/notifications", label: "Notifications", icon: Bell        },
+  { href: "/settings",   label: "Settings",     icon: Settings        },
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname  = usePathname();
+  const { user, logout } = useAuth();
+  const { avatar } = useAvatar();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("debtpadi_token");
-    if (!token && pathname.startsWith("/dashboard")) {
-      router.replace("/auth/signin");
-    }
-  }, [pathname, router]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
-  async function handleSignOut() {
-    try {
-      await fetch(`http://localhost:5000/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch {
-      // Ignore errors
-    } finally {
-      // Clear localStorage
-      localStorage.removeItem("debtpadi_user");
-      localStorage.removeItem("debtpadi_token");
-      router.push("/auth/signin");
-    }
-  }
+  const initials = user?.name
+    ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "U";
 
-  return (
-    <aside className="hidden md:flex flex-col w-60 bg-ink-900 border-r border-white/5 min-h-screen fixed left-0 top-0 bottom-0 z-40">
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/5">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="bg-white flex items-center justify-center flex-shrink-0">
-            <Image
-              src="/debtpadi.png"
-              alt="DebtPadi Logo"
-              width={80}
-              height={60}
-              className="object-contain"
-              priority
-            />
-          </div>
+      <div className="px-5 pt-5 pb-4">
+        <Link href="/dashboard" className="block">
+          <Image src="/debtpadi.png" alt="DebtPadi" width={120} height={32}
+            className="object-contain brightness-0 invert" priority />
         </Link>
       </div>
 
-      <BusinessBadge />
-
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <p className="text-ink-600 text-[10px] uppercase tracking-widest font-semibold px-3 mb-2">
-          Menu
+      {/* Active Store badge */}
+      <div className="mx-3 mb-3 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10">
+        <p className="text-[10px] font-semibold text-jade uppercase tracking-widest mb-0.5">
+          Active Store
         </p>
-        {nav.map(({ label, href, icon: Icon }) => {
+        <p className="text-sm font-semibold text-white truncate">
+          {user?.businessName ?? "My Business"}
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-3 mb-2 border-t border-white/10" />
+      <p className="px-4 text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-1">Menu</p>
+
+      {/* Nav links */}
+      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto pb-2">
+        {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <Link
-              key={href}
-              href={href}
-              className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group",
+            <Link key={href} href={href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 active
-                  ? "bg-jade text-ink-900"
-                  : "text-ink-400 hover:bg-white/5 hover:text-white",
-              )}
+                  ? "bg-jade text-ink-900 shadow-sm shadow-jade/30"
+                  : "text-white/60 hover:bg-white/8 hover:text-white"
+              }`}
             >
-              <Icon
-                size={17}
-                className={clsx(
-                  active
-                    ? "text-ink-900"
-                    : "text-ink-500 group-hover:text-white",
-                )}
-              />
+              <Icon size={17} />
               {label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-3 pb-4 border-t border-white/5 pt-4 space-y-1">
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-400 hover:bg-white/5 hover:text-white transition-all group"
+      {/* Sign out */}
+      <div className="px-3 py-3 border-t border-white/10">
+        <button onClick={logout}
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all"
         >
-          <Bell size={17} className="text-ink-500 group-hover:text-white" />
-          Notifications
-        </Link>
-
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-400 hover:bg-white/5 hover:text-white transition-all group"
-        >
-          <Settings size={17} className="text-ink-500 group-hover:text-white" />
-          Settings
-        </Link>
-
-        <button
-          onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-400 hover:bg-coral-500/10 hover:text-coral-400 transition-all group"
-        >
-          <LogOut
-            size={17}
-            className="text-ink-500 group-hover:text-coral-400"
-          />
+          <LogOut size={17} />
           Sign out
         </button>
-
-        <PlanBadge />
       </div>
-    </aside>
-  );
-}
 
-function BusinessBadge() {
-  const [businessName, setBusinessName] = useState<string>("");
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("debtpadi_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        setBusinessName(user.businessName || user.name || "");
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  if (!businessName) return null;
-
-  return (
-    <div className="px-4 py-3 mx-3 mt-3 bg-jade/5 border border-jade/10 rounded-xl">
-      <p className="text-jade text-xs font-medium uppercase tracking-wide">
-        Active Store
-      </p>
-      <p className="text-white font-semibold text-sm mt-0.5 truncate">
-        {businessName}
-      </p>
-    </div>
-  );
-}
-
-function PlanBadge() {
-  const [plan, setPlan] = useState<{
-    name: string;
-    used: number;
-    limit: number;
-  }>({
-    name: "Free",
-    used: 0,
-    limit: 10,
-  });
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("debtpadi_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        setPlan({
-          name: user.plan === "pro" ? "Pro" : "Free",
-          used: user.creditCustomers?.length ?? 0,
-          limit: user.plan === "pro" ? 999 : 10,
-        });
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const pct = Math.min((plan.used / plan.limit) * 100, 100);
-
-  return (
-    <div className="mt-4 bg-ink-800 border border-white/5 rounded-xl p-3">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-ink-400 text-xs">{plan.name} plan</p>
-        {plan.name === "Free" && (
-          <Link
-            href="#"
-            className="text-jade text-xs font-semibold hover:text-jade-400"
-          >
-            Upgrade
+      {/* Free plan banner */}
+      <div className="mx-3 mb-4 px-3 py-3 rounded-xl bg-white/5 border border-white/10">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-white/50 text-xs">Free plan</span>
+          <Link href="/settings?tab=billing"
+            className="text-jade text-xs font-bold hover:text-jade-300 transition-colors flex items-center gap-1">
+            <Zap size={11} /> Upgrade
           </Link>
-        )}
+        </div>
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-jade rounded-full" style={{ width: "60%" }} />
+        </div>
+        <p className="text-white/30 text-[10px] mt-1.5">12 / 10 customers used</p>
       </div>
-      <div className="h-1 bg-ink-700 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-jade rounded-full transition-all"
-          style={{ width: `${pct}%` }}
-        />
+
+      {/* User row */}
+      <div className="px-3 pb-5">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5">
+          {avatar ? (
+            <img src={avatar} alt="Avatar"
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-white/20" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-jade flex items-center justify-center flex-shrink-0 text-ink-900 text-xs font-bold">
+              {initials}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{user?.name ?? "User"}</p>
+            <p className="text-[11px] text-white/40 truncate">{user?.email ?? ""}</p>
+          </div>
+          <ChevronUp size={14} className="text-white/30 flex-shrink-0" />
+        </div>
       </div>
-      <p className="text-ink-500 text-[10px] mt-1.5">
-        {plan.used} / {plan.limit} customers used
-      </p>
     </div>
+  );
+
+  return (
+    <>
+      {/* Mobile top-bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#0f1117] border-b border-white/10 h-14 flex items-center justify-between px-4">
+        <Link href="/dashboard">
+          <Image src="/debtpadi.png" alt="DebtPadi" width={100} height={28}
+            className="object-contain brightness-0 invert" priority />
+        </Link>
+        <button onClick={() => setMobileOpen((v) => !v)}
+          className="p-2 rounded-xl text-white/60 hover:bg-white/10 transition" aria-label="Toggle menu">
+          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-20 bg-black/60" onClick={() => setMobileOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed top-0 left-0 h-full w-60 bg-[#0f1117] z-30
+        transition-transform duration-300
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        md:translate-x-0`}>
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile spacer */}
+      <div className="md:hidden h-14" />
+    </>
   );
 }

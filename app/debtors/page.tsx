@@ -2382,16 +2382,19 @@ export default function DebtorsPage() {
                         className="px-5 py-4"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center gap-1.5">
-                          {debt.status !== "cleared" && (
-                            <button
-                              onClick={() => setReminderDebt(debt)}
-                              className="w-8 h-8 rounded-lg bg-jade/10 hover:bg-jade/20 text-jade flex items-center justify-center transition-colors"
-                              title="Send reminder"
-                            >
-                              <MessageSquare size={14} />
-                            </button>
-                          )}
+                        <div className="flex items-center gap-1.5 w-[84px] justify-end">
+                          <button
+                            onClick={() => setReminderDebt(debt)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                              debt.status !== "cleared"
+                                ? "bg-jade/10 hover:bg-jade/20 text-jade"
+                                : "invisible"
+                            }`}
+                            title="Send reminder"
+                            tabIndex={debt.status === "cleared" ? -1 : 0}
+                          >
+                            <MessageSquare size={14} />
+                          </button>
                           <button
                             onClick={() => setEvidenceDebt(debt)}
                             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
@@ -2399,6 +2402,7 @@ export default function DebtorsPage() {
                                 ? "bg-amber-50 hover:bg-amber-100 text-amber-500"
                                 : "bg-ink-50 hover:bg-ink-100 text-ink-400"
                             }`}
+                            title="Attach evidence"
                           >
                             <Paperclip size={14} />
                           </button>
@@ -2477,17 +2481,20 @@ export default function DebtorsPage() {
                     className="flex items-center gap-1 flex-shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {debt.status !== "cleared" && (
-                      <button
-                        onClick={() => setReminderDebt(debt)}
-                        className="w-8 h-8 rounded-lg bg-jade/10 hover:bg-jade/20 text-jade flex items-center justify-center"
-                      >
-                        <MessageSquare size={14} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setReminderDebt(debt)}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                        debt.status !== "cleared"
+                          ? "bg-jade/10 hover:bg-jade/20 text-jade"
+                          : "invisible pointer-events-none"
+                      }`}
+                      tabIndex={debt.status === "cleared" ? -1 : 0}
+                    >
+                      <MessageSquare size={14} />
+                    </button>
                     <button
                       onClick={() => setPaymentDebt(debt)}
-                      className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 text-ink-500 flex items-center justify-center"
+                      className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 text-ink-500 flex items-center justify-center transition-colors"
                     >
                       <CreditCard size={14} />
                     </button>

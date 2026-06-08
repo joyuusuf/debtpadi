@@ -1,176 +1,165 @@
-// ─── lib/api.ts ──────────────────────────────────────────────────────────────
-// Typed API client for DebtPadi backend.
-// All methods read the JWT from localStorage (key: "debtpadi_token").
-// Base URL is read from NEXT_PUBLIC_API_URL env var (default: /api).
+// ─── lib/api.ts ───────────────────────────────────────────────────────────────
+// Centralised API client for DebtPadi.
+// All requests go to NEXT_PUBLIC_API_URL (e.g. http://localhost:5000/api).
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-// ── Token helpers ─────────────────────────────────────────────────────────────
-
-export function getToken(): string | null {
+function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("debtpadi_token");
 }
 
-export function setToken(token: string) {
-  localStorage.setItem("debtpadi_token", token);
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  data: T;
+  error?: string;
+  message?: string;
 }
 
-export function clearToken() {
-  localStorage.removeItem("debtpadi_token");
-}
-
-// ── Core fetch wrapper ────────────────────────────────────────────────────────
-
-async function apiFetch<T>(
+async function request<T = unknown>(
   path: string,
   options: RequestInit = {}
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   const token = getToken();
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    },
+  });
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers ?? {}),
-  };
+  const data = await res.json();
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
-
-  // Handle 401 globally — clear token and redirect to login
   if (res.status === 401) {
-    clearToken();
     if (typeof window !== "undefined") {
-      window.location.href = "/login";
+      localStorage.removeItem("debtpadi_token");
+      localStorage.removeItem("debtpadi_user");
+      window.location.href = "/auth/signin";
     }
-    throw new Error("Unauthorised");
+    throw new Error("Unauthorized");
   }
-
-  const json = await res.json();
 
   if (!res.ok) {
-    const message =
-      Array.isArray(json?.error)
-        ? json.error.join(", ")
-        : json?.error ?? "Something went wrong";
-    throw new Error(message);
+    throw new Error(data.error || data.message || `HTTP ${res.status}`);
   }
 
-  return json as T;
+  return data as ApiResponse<T>;
 }
 
-// ── Types (mirrors backend responses) ────────────────────────────────────────
-
-export interface ApiCustomer {
-  _id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  totalDebt: number;
-  totalPaid: number;
-}
-
-export interface ApiPayment {
-  amount: number;
-  note?: string;
-  recordedAt: string;
-}
-
-export interface ApiDebt {
-  _id: string;
-  customer: ApiCustomer;
-  description: string;
-  amount: number;
-  amountPaid: number;
-  dueDate?: string;
-  status: "pending" | "partial" | "overdue" | "cleared";
-  payments: ApiPayment[];
-  evidences?: ApiEvidence[];
-  createdAt: string;
-}
-
-export interface ApiEvidence {
-  id: string;
-  name: string;
-  type: "image" | "document";
-  url: string;
-  uploadedAt: string;
-  note?: string;
-}
-
-interface PaginatedDebts {
-  success: boolean;
-  count: number;
-  total: number;
-  page: number;
-  pages: number;
-  data: ApiDebt[];
-}
-
-interface SingleDebt {
-  success: boolean;
-  data: ApiDebt;
-}
-
-interface AuthResponse {
-  success: boolean;
-  token: string;
-  data: { name: string; email: string };
-}
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const auth = {
   register: (body: {
     name: string;
     email: string;
     password: string;
+    businessName: string;
     phone?: string;
-  }) =>
-    apiFetch<AuthResponse>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+  }) => request("/auth/register", { method: "POST", body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>
-    apiFetch<AuthResponse>("/auth/login", {
+    request<{ token: string; user: Record<string, unknown> }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  forgotPassword: (email: string) =>
+    request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (body: { token: string; password: string }) =>
+    request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  verifyEmail: (token: string) =>
+    request("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    request("/auth/change-password", {  // backend alias: POST /auth/change-password
       method: "POST",
       body: JSON.stringify(body),
     }),
 };
 
-// ── Customers ─────────────────────────────────────────────────────────────────
+// ─── Profile / Settings ───────────────────────────────────────────────────────
+
+export const profile = {
+  get: () => request<Record<string, unknown>>("/users/me"),
+
+  update: (body: {
+    name?: string;
+    businessName?: string;
+    phone?: string;
+    address?: string;
+  }) =>
+    request<Record<string, unknown>>("/users/me", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteAccount: (password: string) =>
+    request("/users/me", {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    }),
+};
+
+// ─── Customers ────────────────────────────────────────────────────────────────
 
 export const customers = {
-  list: () =>
-    apiFetch<{ success: boolean; data: ApiCustomer[] }>("/customers"),
+  list: (params?: { limit?: number; page?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.page) q.set("page", String(params.page));
+    return request<Record<string, unknown>[]>(`/customers?${q.toString()}`);
+  },
 
-  create: (body: { name: string; phone: string; email?: string }) =>
-    apiFetch<{ success: boolean; data: ApiCustomer }>("/customers", {
+  get: (id: string) =>
+    request<{ customer: Record<string, unknown>; debts: Record<string, unknown>[] }>(
+      `/customers/${id}`
+    ),
+
+  create: (body: { name: string; phone: string; address?: string; notes?: string }) =>
+    request<Record<string, unknown>>("/customers", {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  update: (
+    id: string,
+    body: { name?: string; phone?: string; address?: string; notes?: string }
+  ) =>
+    request<Record<string, unknown>>(`/customers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    request(`/customers/${id}`, { method: "DELETE" }),
 };
 
-// ── Debts ─────────────────────────────────────────────────────────────────────
+// ─── Debts ────────────────────────────────────────────────────────────────────
 
 export const debts = {
-  /** Fetch paginated debt list, with optional status/customer filters */
-  list: (params?: {
-    status?: string;
-    customerId?: string;
-    page?: number;
-    limit?: number;
-  }) => {
-    const qs = new URLSearchParams();
-    if (params?.status) qs.set("status", params.status);
-    if (params?.customerId) qs.set("customerId", params.customerId);
-    if (params?.page) qs.set("page", String(params.page));
-    if (params?.limit) qs.set("limit", String(params.limit));
-    const query = qs.toString() ? `?${qs}` : "";
-    return apiFetch<PaginatedDebts>(`/debts${query}`);
+  list: (params?: { limit?: number; page?: number; status?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.status) q.set("status", params.status);
+    return request<Record<string, unknown>[]>(`/debts?${q.toString()}`);
   },
 
-  get: (id: string) => apiFetch<SingleDebt>(`/debts/${id}`),
+  get: (id: string) => request<Record<string, unknown>>(`/debts/${id}`),
 
   create: (body: {
     customerId: string;
@@ -178,47 +167,60 @@ export const debts = {
     amount: number;
     dueDate: string;
   }) =>
-    apiFetch<SingleDebt>("/debts", {
+    request<Record<string, unknown>>("/debts", {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
   update: (
     id: string,
-    body: Partial<{ description: string; dueDate: string }>
+    body: { description?: string; dueDate?: string; amount?: number }
   ) =>
-    apiFetch<SingleDebt>(`/debts/${id}`, {
-      method: "PUT",
+    request<Record<string, unknown>>(`/debts/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(body),
     }),
 
-  delete: (id: string) =>
-    apiFetch<{ success: boolean; message: string }>(`/debts/${id}`, {
-      method: "DELETE",
-    }),
+  delete: (id: string) => request(`/debts/${id}`, { method: "DELETE" }),
 
-  /** Record a partial or full payment against a debt */
-  recordPayment: (id: string, body: { amount: number; note?: string }) =>
-    apiFetch<SingleDebt>(`/debts/${id}/pay`, {
+  recordPayment: (
+    id: string,
+    body: { amount: number; note?: string; method?: string }
+  ) =>
+    request<Record<string, unknown>>(`/debts/${id}/payments`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  /** Trigger server-side overdue sweep */
-  sweepOverdue: () =>
-    apiFetch<{ success: boolean; message: string }>("/debts/sweep-overdue", {
-      method: "POST",
-    }),
-
-  // ── Evidence (stored on the debt document) ─────────────────────────────────
-  // The backend Debt model should have an `evidences` array field.
-  // These helpers PATCH just the evidences array via the generic update route.
-  // If you add a dedicated /debts/:id/evidences route later, swap these out.
-
-  /** Replace the evidence array on a debt record */
-  updateEvidences: (id: string, evidences: ApiEvidence[]) =>
-    apiFetch<SingleDebt>(`/debts/${id}`, {
+  updateEvidences: (
+    id: string,
+    evidences: { url: string; name: string; type: string; size: number }[]
+  ) =>
+    request<Record<string, unknown>>(`/debts/${id}/evidences`, {
       method: "PUT",
       body: JSON.stringify({ evidences }),
+    }),
+
+  sweepOverdue: () =>
+    request("/debts/sweep-overdue", { method: "POST" }),
+};
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export const dashboard = {
+  stats: () => request<Record<string, unknown>>("/dashboard/stats"),
+};
+
+// ─── Reminders ────────────────────────────────────────────────────────────────
+
+export const reminders = {
+  sendWhatsapp: (body: {
+    debtId: string;
+    message: string;
+    phone: string;
+  }) =>
+    request("/reminders/whatsapp", {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
 };

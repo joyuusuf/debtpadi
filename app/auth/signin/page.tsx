@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 
-const API_BASE = "http://localhost:5000/api/auth";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api") + "/auth";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
