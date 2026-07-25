@@ -28,6 +28,7 @@ import {
   ShoppingCart,
   Receipt,
   Check,
+  Pencil,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Toast } from "@/components/ui/Toast";
@@ -107,11 +108,13 @@ function ActionMenu({
   onDetail,
   onDelete,
   onEvidence,
+  onEdit,
 }: {
   onPayment: () => void;
   onDetail: () => void;
   onDelete: () => void;
   onEvidence: () => void;
+  onEdit: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{
@@ -183,6 +186,12 @@ function ActionMenu({
                 label: "View Details",
                 fn: onDetail,
                 style: "text-ink-700 hover:bg-ink-50",
+              },
+              {
+                icon: <Pencil size={14} className="text-jade" />,
+                label: "Edit Debtor Info",
+                fn: onEdit,
+                style: "text-jade hover:bg-jade/5",
               },
               {
                 icon: <CreditCard size={14} className="text-ink-400" />,
@@ -2063,6 +2072,140 @@ function DebtModal({
   );
 }
 
+// ─── Edit Debtor Modal ────────────────────────────────────────────────────────
+
+function EditDebtorModal({
+  debt,
+  onSave,
+  onClose,
+}: {
+  debt: DebtRecord;
+  onSave: (id: string, data: { phone: string; description: string; dueDate: string }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [phone, setPhone] = useState(debt.phone ?? "");
+  const [description, setDescription] = useState(debt.description ?? "");
+  const [dueDate, setDueDate] = useState(
+    debt.dueDate ? debt.dueDate.slice(0, 10) : ""
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!phone.trim()) { setError("Phone number is required."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(debt.id, { phone: phone.trim(), description: description.trim(), dueDate });
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-fade-up">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-jade/10 rounded-lg flex items-center justify-center">
+              <Pencil size={14} className="text-jade" />
+            </div>
+            <div>
+              <h2 className="font-heading font-bold text-base text-ink-900">Edit Debtor</h2>
+              <p className="text-ink-400 text-xs">{debt.customerName}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-400 transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          {error && (
+            <p className="text-coral-600 text-xs bg-coral-50 border border-coral-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+              <AlertTriangle size={13} className="flex-shrink-0" /> {error}
+            </p>
+          )}
+
+          {/* Phone — the most common thing to fix */}
+          <div>
+            <label className="block text-ink-700 text-sm font-semibold mb-1.5">
+              Phone number <span className="text-coral-500">*</span>
+            </label>
+            <div className="relative">
+              <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="e.g. 08012345678"
+                autoFocus
+                className="w-full bg-ink-50 border border-ink-200 rounded-xl pl-9 pr-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all outline-none"
+              />
+            </div>
+            <p className="text-ink-400 text-[11px] mt-1">Used for WhatsApp reminders</p>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-ink-700 text-sm font-semibold mb-1.5">Description</label>
+            <input
+              type="text"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="e.g. Goods on credit"
+              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all outline-none"
+            />
+          </div>
+
+          {/* Due date */}
+          <div>
+            <label className="block text-ink-700 text-sm font-semibold mb-1.5">Due date</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={e => setDueDate(e.target.value)}
+              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-2.5 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all outline-none"
+            />
+          </div>
+
+          {/* Readonly info */}
+          <div className="bg-ink-50 rounded-xl px-4 py-3 text-xs text-ink-400 space-y-0.5">
+            <p>Amount: <span className="font-semibold text-ink-600">{new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(debt.amount)}</span> — to adjust, record a payment</p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-2.5 rounded-xl hover:bg-ink-50 text-sm transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-[2] bg-jade hover:bg-jade-400 disabled:opacity-60 text-ink-900 font-bold py-2.5 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+            >
+              {saving ? <><Clock size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Changes</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DebtorsPage() {
@@ -2071,6 +2214,7 @@ export default function DebtorsPage() {
     loading,
     error,
     addDebt,
+    editDebt: saveEditDebt,
     removeDebt,
     recordPayment,
     setDebts,
@@ -2091,6 +2235,7 @@ export default function DebtorsPage() {
   const [paymentDebt, setPaymentDebt] = useState<DebtRecord | null>(null);
   const [detailDebt, setDetailDebt] = useState<DebtRecord | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [editDebt, setEditDebt] = useState<DebtRecord | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const { usage, debtsAtLimit, refresh: refreshUsage } = usePlanUsage();
 
@@ -2175,6 +2320,46 @@ export default function DebtorsPage() {
       }
       setActionError(err instanceof Error ? err.message : "Failed to add debt");
     }
+  }
+
+  async function handleEditSave(
+    id: string,
+    data: { phone: string; description: string; dueDate: string }
+  ) {
+    const debt = debts.find(d => d.id === id);
+    if (!debt) return;
+
+    // Update the debt record (description + dueDate)
+    await saveEditDebt(id, {
+      customerName: debt.customerName,
+      phone: data.phone,
+      description: data.description,
+      amount: String(debt.amount),
+      amountPaid: String(debt.amountPaid),
+      dueDate: data.dueDate,
+    });
+
+    // Also patch the customer's phone number via customers API
+    if (data.phone && data.phone !== debt.phone && debt.customerId) {
+      try {
+        const token = localStorage.getItem("debtpadi_token");
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/customers/${debt.customerId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ phone: data.phone }),
+          }
+        );
+      } catch {
+        // Non-critical — debt is already updated, customer phone patch is best-effort
+      }
+    }
+
+    setToast({ message: "Debtor info updated successfully!", type: "success" });
   }
 
   async function handleDelete() {
@@ -2473,6 +2658,7 @@ export default function DebtorsPage() {
                             onDetail={() => setDetailDebt(debt)}
                             onDelete={() => setDeleteTarget(debt)}
                             onEvidence={() => setEvidenceDebt(debt)}
+                            onEdit={() => setEditDebt(debt)}
                           />
                         </div>
                       </td>
@@ -2565,6 +2751,7 @@ export default function DebtorsPage() {
                       onDetail={() => setDetailDebt(debt)}
                       onDelete={() => setDeleteTarget(debt)}
                       onEvidence={() => setEvidenceDebt(debt)}
+                      onEdit={() => setEditDebt(debt)}
                     />
                   </div>
                 </div>
@@ -2692,6 +2879,14 @@ export default function DebtorsPage() {
           resource="debts"
           limit={usage?.debts.limit ?? 10}
           onClose={() => setShowUpgrade(false)}
+        />
+      )}
+
+      {editDebt && (
+        <EditDebtorModal
+          debt={editDebt}
+          onSave={handleEditSave}
+          onClose={() => setEditDebt(null)}
         />
       )}
     </>

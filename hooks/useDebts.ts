@@ -12,6 +12,8 @@ export interface DebtForm {
   amount: string;
   amountPaid: string;
   dueDate: string;
+  // Optional — passed when editing to update customer phone
+  editPhone?: string;
 }
 
 interface UseDebtsReturn {
@@ -118,6 +120,21 @@ export function useDebts(): UseDebtsReturn {
         dueDate: form.dueDate || undefined,
       });
 
+      // Optimistically apply phone + description to local state immediately
+      setDebts((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                phone: (form.phone ?? "").trim() || d.phone,
+                description: form.description.trim() || d.description,
+                dueDate: form.dueDate || d.dueDate,
+              }
+            : d
+        )
+      );
+
+      // If amount paid changed, record payment for the delta
       const newAmountPaid = parseFloat(form.amountPaid) || 0;
       const delta = newAmountPaid - current.amountPaid;
       if (delta > 0) {
@@ -127,11 +144,6 @@ export function useDebts(): UseDebtsReturn {
         });
         setDebts((prev) =>
           prev.map((d) => (d.id === id ? apiDebtToDebtRecord(payRes.data) : d))
-        );
-      } else {
-        const getRes = await debtsApi.get(id);
-        setDebts((prev) =>
-          prev.map((d) => (d.id === id ? apiDebtToDebtRecord(getRes.data) : d))
         );
       }
     },
