@@ -231,6 +231,33 @@ export const dashboard = {
   stats: () => request<Record<string, unknown>>("/dashboard/stats"),
 };
 
+// ─── Subscription ─────────────────────────────────────────────────────────────
+
+export const subscription = {
+  initiate: (plan: "growth" | "business") =>
+    request<{ payment_link: string; tx_ref: string }>("/subscription/initiate", {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    }),
+
+  verify: (params: { tx_ref: string; transaction_id: string; status: string; plan: string }) => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    return request<{ plan: string; planExpiresAt: string }>(`/subscription/verify?${q.toString()}`);
+  },
+
+  status: () =>
+    request<{
+      plan: string;
+      planExpiresAt: string | null;
+      isActive: boolean;
+      daysRemaining: number | null;
+      history: { plan: string; amount: number; txRef: string; activatedAt: string; expiresAt: string }[];
+    }>("/subscription/status"),
+
+  cancel: () =>
+    request("/subscription/cancel", { method: "POST" }),
+};
+
 // ─── Reminders ────────────────────────────────────────────────────────────────
 
 export const reminders = {

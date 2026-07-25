@@ -12,7 +12,7 @@ const COPY = {
     icon: Users,
     title: "Customer limit reached",
     body: (limit: number) =>
-      `You've reached the free plan limit of ${limit} customers. Upgrade to Pro for unlimited customers.`,
+      `You've reached the free plan limit of ${limit} customers. Upgrade to Growth (₦9,800/mo) or Business (₦24,500/mo) for more capacity.`,
   },
   debts: {
     icon: Receipt,
@@ -43,7 +43,7 @@ export function UpgradeModal({ resource, limit = 10, onClose }: UpgradeModalProp
             ₦30,000<span className="text-ink-400 font-normal text-sm">/month</span>
           </p>
           <ul className="space-y-1.5">
-            {["Unlimited customers & debts", "WhatsApp reminders", "PDF export", "Priority support"].map((f) => (
+            {["100–unlimited customers", "Unlimited debts", "AI reminders", "PDF export"].map((f) => (
               <li key={f} className="text-xs text-ink-600 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-jade flex-shrink-0" />
                 {f}
@@ -52,9 +52,9 @@ export function UpgradeModal({ resource, limit = 10, onClose }: UpgradeModalProp
           </ul>
         </div>
 
-        <button className="w-full bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3.5 rounded-xl transition-all hover:shadow-lg mb-3">
-          Upgrade to Pro — ₦30,000/mo
-        </button>
+        <a href="/subscription" className="w-full bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3.5 rounded-xl transition-all hover:shadow-lg mb-3 flex items-center justify-center gap-2">
+          See Plans &amp; Upgrade
+        </a>
         <button onClick={onClose} className="w-full text-ink-400 hover:text-ink-600 text-sm transition-colors py-2">
           Maybe later
         </button>

@@ -6,6 +6,7 @@ import { User, Bell, Shield, CreditCard, Smartphone, ChevronRight, Upload, Eye, 
 import TopBar from "@/components/layout/TopBar";
 import { useAvatar } from "@/context/AvatarContext";
 import { useSearchParams, useRouter } from "next/navigation";
+import { subscription as subscriptionApi } from "@/lib/api";
 import { Toast } from "@/components/ui/Toast";
 import { usePlanUsage } from "@/hooks/usePlanUsage";
 
@@ -406,70 +407,93 @@ export default function SettingsPage() {
             {/* ── BILLING ── */}
             {activeTab === "billing" && (
               <div className="space-y-4">
+                {/* Current plan card */}
                 <div className="bg-white border border-ink-100 rounded-2xl p-4 sm:p-6">
                   <h2 className="font-heading font-bold text-lg sm:text-xl text-ink-900 mb-4">Current Plan</h2>
                   <div className="bg-ink-50 rounded-xl p-4 flex items-center justify-between gap-3 mb-4">
                     <div>
-                      <p className="font-heading font-semibold text-ink-800">
-                        {usage?.isPaid ? "Pro Plan" : "Free Plan"}
+                      <p className="font-heading font-semibold text-ink-800 capitalize">
+                        {usage?.plan ?? "starter"} Plan
                       </p>
                       <p className="text-ink-400 text-sm">
-                        {usage?.isPaid ? "Unlimited customers & debts" : "Up to 10 customers & 10 active debts"}
+                        {usage?.plan === "business" ? "Unlimited everything"
+                          : usage?.plan === "growth" ? "Up to 100 customers, unlimited debts"
+                          : "Up to 10 customers & 10 active debts"}
                       </p>
+                      {usage?.planExpiresAt && usage.isPaid && (
+                        <p className="text-ink-400 text-xs mt-0.5">
+                          Renews {new Date(usage.planExpiresAt).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })}
+                        </p>
+                      )}
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      usage?.isPaid ? "bg-jade/15 text-jade-700" : "bg-ink-200 text-ink-600"
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                      usage?.plan === "business" ? "bg-ink-900 text-white"
+                        : usage?.plan === "growth" ? "bg-jade/15 text-jade-700"
+                        : "bg-ink-200 text-ink-600"
                     }`}>
-                      {usage?.isPaid ? "Pro" : "Active"}
+                      {usage?.plan === "business" ? "Business"
+                        : usage?.plan === "growth" ? "Growth"
+                        : "Free"}
                     </span>
                   </div>
 
-                  {!usage?.isPaid && usage && (
-                    <div className="space-y-4">
+                  {/* Usage bars */}
+                  {usage && (
+                    <div className="space-y-3">
                       <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-ink-600">Customers used</span>
-                          <span className="font-semibold text-ink-800">{usage.customers.used} / {usage.customers.limit}</span>
+                        <div className="flex justify-between text-sm mb-1.5">
+                          <span className="text-ink-600">Customers</span>
+                          <span className="font-semibold text-ink-800">
+                            {usage.customers.used}{usage.customers.limit ? ` / ${usage.customers.limit}` : " (unlimited)"}
+                          </span>
                         </div>
-                        <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-jade rounded-full" style={{ width: `${Math.min(100, ((usage.customers.limit ?? 1) > 0 ? (usage.customers.used / (usage.customers.limit ?? 1)) * 100 : 0))}%` }} />
-                        </div>
-                        {(usage.customers.remaining ?? 1) <= 0 && (
-                          <p className="text-coral-500 text-xs mt-1.5 font-medium">Limit reached — upgrade to add more customers</p>
+                        {usage.customers.limit && (
+                          <>
+                            <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-jade rounded-full" style={{ width: `${Math.min(100, (usage.customers.used / usage.customers.limit) * 100)}%` }} />
+                            </div>
+                            {(usage.customers.remaining ?? 1) <= 0 && (
+                              <p className="text-coral-500 text-xs mt-1">Limit reached</p>
+                            )}
+                          </>
                         )}
                       </div>
                       <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-ink-600">Active debts used</span>
-                          <span className="font-semibold text-ink-800">{usage.debts.used} / {usage.debts.limit}</span>
+                        <div className="flex justify-between text-sm mb-1.5">
+                          <span className="text-ink-600">Active debts</span>
+                          <span className="font-semibold text-ink-800">
+                            {usage.debts.used}{usage.debts.limit ? ` / ${usage.debts.limit}` : " (unlimited)"}
+                          </span>
                         </div>
-                        <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min(100, ((usage.debts.limit ?? 1) > 0 ? (usage.debts.used / (usage.debts.limit ?? 1)) * 100 : 0))}%` }} />
-                        </div>
-                        {(usage.debts.remaining ?? 1) <= 0 && (
-                          <p className="text-coral-500 text-xs mt-1.5 font-medium">Limit reached — upgrade to add more debts</p>
+                        {usage.debts.limit && (
+                          <>
+                            <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min(100, (usage.debts.used / usage.debts.limit) * 100)}%` }} />
+                            </div>
+                            {(usage.debts.remaining ?? 1) <= 0 && (
+                              <p className="text-coral-500 text-xs mt-1">Limit reached</p>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
                   )}
                 </div>
 
+                {/* Upgrade CTA */}
                 <div className="bg-jade/5 border border-jade/20 rounded-2xl p-4 sm:p-6">
-                  <p className="font-heading font-bold text-lg text-ink-900">Pro Plan</p>
-                  <p className="text-jade font-bold text-3xl mt-1">
-                    ₦30,000<span className="text-ink-400 font-normal text-base">/month</span>
+                  <p className="font-heading font-bold text-base text-ink-900 mb-1">
+                    {usage?.isPaid ? "Manage your subscription" : "Unlock more with a paid plan"}
                   </p>
-                  <ul className="mt-4 space-y-2">
-                    {["Unlimited customers", "WhatsApp reminders", "PDF export", "Priority support", "Advanced reports"].map(f => (
-                      <li key={f} className="text-sm text-ink-600 flex items-center gap-2.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-jade flex-shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button className="mt-5 w-full bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3 rounded-xl transition-all hover:shadow-lg">
-                    Upgrade to Pro
-                  </button>
+                  <p className="text-ink-500 text-sm mb-4">
+                    {usage?.isPaid
+                      ? "View all plans, upgrade, or cancel your current subscription."
+                      : "Growth starts at ₦9,800/month. Business at ₦24,500/month."}
+                  </p>
+                  <a href="/subscription"
+                    className="flex items-center justify-center gap-2 w-full bg-jade hover:bg-jade-400 text-ink-900 font-bold py-3 rounded-xl transition-all hover:shadow-lg text-sm">
+                    {usage?.isPaid ? "Manage Subscription" : "View Plans & Upgrade"}
+                  </a>
                 </div>
               </div>
             )}

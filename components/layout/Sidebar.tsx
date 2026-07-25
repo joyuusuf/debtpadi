@@ -104,7 +104,7 @@ export default function Sidebar() {
             {usage?.isPaid ? "Pro plan" : "Free plan"}
           </span>
           {!usage?.isPaid && (
-            <Link href="/settings?tab=billing"
+            <Link href="/subscription"
               className="text-jade text-xs font-bold hover:text-jade-300 transition-colors flex items-center gap-1">
               <Zap size={11} /> Upgrade
             </Link>
