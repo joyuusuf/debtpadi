@@ -529,6 +529,7 @@ export default function CustomersPage() {
     try {
       await removeCustomer(deleteTarget.id);
       setDeleteTarget(null);
+      refreshUsage(); // sync sidebar count immediately
     } catch (err: unknown) {
       setDeleteError(
         err instanceof Error ? err.message : "Failed to delete customer",

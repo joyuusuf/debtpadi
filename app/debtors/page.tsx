@@ -2184,6 +2184,7 @@ export default function DebtorsPage() {
       await removeDebt(deleteTarget.id);
       setDeleteTarget(null);
       setToast({ message: "Debt deleted", type: "success" });
+      refreshUsage(); // sync sidebar count immediately
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : "Failed to delete");
     }
