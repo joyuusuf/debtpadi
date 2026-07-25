@@ -133,6 +133,7 @@ interface UseCustomersReturn {
   error: string | null;
   refresh: () => Promise<void>;
   addCustomer: (form: CustomerForm) => Promise<void>;
+  updateCustomer: (id: string, form: Partial<CustomerForm>) => Promise<Customer>;
   removeCustomer: (id: string) => Promise<void>;
   fetchHistory: (customerId: string) => Promise<HistoryEntry[]>;
 }
@@ -177,6 +178,21 @@ export function useCustomers(): UseCustomersReturn {
     setCustomers((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  const updateCustomer = useCallback(async (id: string, form: Partial<CustomerForm>) => {
+    const res = await apiFetch<{ data: Record<string, unknown> }>(`/customers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: form.name?.trim(),
+        phone: form.phone?.trim(),
+        address: form.address?.trim() || undefined,
+        notes: form.notes?.trim() || undefined,
+      }),
+    });
+    const updated = apiCustomerToCustomer(res.data);
+    setCustomers((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    return updated;
+  }, []);
+
   /**
    * Fetches a single customer + their debts and returns a flat HistoryEntry[].
    * Called on-demand when the user opens the history drawer.
@@ -188,5 +204,5 @@ export function useCustomers(): UseCustomersReturn {
     return debtsToHistory(res.data.debts ?? []);
   }, []);
 
-  return { customers, loading, error, refresh, addCustomer, removeCustomer, fetchHistory };
+  return { customers, loading, error, refresh, addCustomer, updateCustomer, removeCustomer, fetchHistory };
 }

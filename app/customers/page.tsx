@@ -17,6 +17,8 @@ import {
   AlertTriangle,
   Loader2,
   Trash2,
+  Pencil,
+  CheckCircle,
 } from "lucide-react";
 import { formatNaira, getStatusColor } from "@/lib/data";
 import TopBar from "@/components/layout/TopBar";
@@ -121,6 +123,125 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+// ─── Edit Customer Modal ──────────────────────────────────────────────────────
+
+function EditCustomerModal({
+  customer,
+  onSave,
+  onClose,
+}: {
+  customer: Customer;
+  onSave: (form: { name: string; phone: string; address: string; notes: string }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: customer.name ?? "",
+    phone: customer.phone ?? "",
+    address: customer.address ?? "",
+    notes: customer.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const update = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { setError("Customer name is required."); return; }
+    if (!form.phone.trim()) { setError("Phone number is required."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(form);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md animate-fade-up">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-ink-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-jade/10 rounded-xl flex items-center justify-center">
+              <Pencil size={15} className="text-jade" />
+            </div>
+            <div>
+              <h2 className="font-heading font-bold text-lg text-ink-900">Edit Customer</h2>
+              <p className="text-ink-400 text-xs">{customer.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-500 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {error && (
+            <p className="text-coral-600 text-xs bg-coral-50 border border-coral-200 rounded-xl px-4 py-2.5 flex items-center gap-2">
+              <AlertTriangle size={13} className="flex-shrink-0" /> {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-ink-600 text-sm font-medium mb-2">Full name *</label>
+            <input autoFocus type="text" required value={form.name}
+              onChange={e => update("name", e.target.value)}
+              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 outline-none transition-all" />
+          </div>
+
+          <div>
+            <label className="block text-ink-600 text-sm font-medium mb-2">Phone number *</label>
+            <input type="tel" required value={form.phone}
+              onChange={e => update("phone", e.target.value)}
+              placeholder="08012345678"
+              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 outline-none transition-all" />
+            <p className="text-ink-400 text-xs mt-1">Used for WhatsApp reminders</p>
+          </div>
+
+          <div>
+            <label className="block text-ink-600 text-sm font-medium mb-2">
+              Address / Area <span className="text-ink-400 font-normal">(optional)</span>
+            </label>
+            <input type="text" value={form.address}
+              onChange={e => update("address", e.target.value)}
+              placeholder="e.g. Surulere, Lagos"
+              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 outline-none transition-all" />
+          </div>
+
+          <div>
+            <label className="block text-ink-600 text-sm font-medium mb-2">
+              Notes <span className="text-ink-400 font-normal">(optional)</span>
+            </label>
+            <textarea value={form.notes}
+              onChange={e => update("notes", e.target.value)}
+              rows={2}
+              placeholder="Any extra info about this customer..."
+              className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 outline-none transition-all resize-none" />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-ink-200 text-ink-600 font-semibold py-3 rounded-xl hover:bg-ink-50 text-sm transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-[2] bg-jade hover:bg-jade-400 disabled:opacity-60 text-ink-900 font-bold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
+              {saving
+                ? <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                : <><CheckCircle size={14} /> Save Changes</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // ─── Add Customer Modal ───────────────────────────────────────────────────────
@@ -478,6 +599,7 @@ export default function CustomersPage() {
     error,
     refresh,
     addCustomer,
+    updateCustomer,
     removeCustomer,
     fetchHistory,
   } = useCustomers();
@@ -485,6 +607,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [editTarget, setEditTarget] = useState<Customer | null>(null);
   const { usage, customersAtLimit, refresh: refreshUsage } = usePlanUsage();
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
@@ -652,14 +775,23 @@ export default function CustomersPage() {
                       </span>
                     </div>
                   </div>
-                  {/* Delete — only shown on hover, only if no outstanding debt */}
-                  <button
-                    onClick={() => setDeleteTarget(customer)}
-                    className="text-ink-300 hover:text-coral-500 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Remove customer"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  {/* Action buttons — Edit and Delete */}
+                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => setEditTarget(customer)}
+                      className="w-7 h-7 rounded-lg bg-jade/10 hover:bg-jade/20 text-jade flex items-center justify-center transition-colors"
+                      title="Edit customer"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(customer)}
+                      className="w-7 h-7 rounded-lg hover:bg-coral-50 text-ink-300 hover:text-coral-500 flex items-center justify-center transition-colors"
+                      title="Remove customer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -822,6 +954,17 @@ export default function CustomersPage() {
 
       {showUpgrade && (
         <UpgradeModal resource="customers" limit={usage?.customers.limit ?? 10} onClose={() => setShowUpgrade(false)} />
+      )}
+
+      {editTarget && (
+        <EditCustomerModal
+          customer={editTarget}
+          onSave={async (form) => {
+            await updateCustomer(editTarget.id, form);
+            setEditTarget(null);
+          }}
+          onClose={() => setEditTarget(null)}
+        />
       )}
     </>
   );

@@ -29,6 +29,7 @@ import {
   Receipt,
   Check,
   Pencil,
+  Loader2,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Toast } from "@/components/ui/Toast";
@@ -752,72 +753,105 @@ function ReminderModal({
     if (aiMessage) setMsg(aiMessage);
   }, [aiMessage]);
 
-  async function getBlob(url: string): Promise<Blob | null> {
-    try {
-      return await (await fetch(url)).blob();
-    } catch {
-      return null;
-    }
-  }
-
   const [smsCopied, setSmsCopied] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [shareError, setShareError] = useState("");
 
   function isMobileDevice() {
     if (typeof navigator === "undefined") return false;
     return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   }
 
-  async function share(channel: "whatsapp" | "sms") {
-    const imgEvs = evidences.filter((e) => e.type === "image").slice(0, 3);
-
-    // Try Web Share API with actual image files (mobile only — desktop browsers rarely support file sharing)
-    if (imgEvs.length > 0 && navigator.share && isMobileDevice()) {
-      const blobs = await Promise.all(imgEvs.map((e) => getBlob(e.url)));
-      const shareFiles = blobs
-        .map((b, i) =>
-          b ? new File([b], imgEvs[i].name, { type: b.type }) : null,
-        )
-        .filter(Boolean) as File[];
-      if (
-        shareFiles.length > 0 &&
-        navigator.canShare?.({ files: shareFiles })
-      ) {
-        await navigator.share({ text: msg, files: shareFiles });
-        onClose();
-        return;
-      }
+  // Fetch a single image file through our proxy (avoids CORS on Cloudinary)
+  async function fetchImageFile(ev: { url: string; name?: string }): Promise<File | null> {
+    try {
+      const proxyUrl = ev.url.includes("cloudinary.com")
+        ? `/api/proxy-image?url=${encodeURIComponent(ev.url)}`
+        : ev.url;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      // Force a recognized image MIME type
+      const ext = ev.url.split(".").pop()?.split("?")[0]?.toLowerCase() ?? "jpg";
+      const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
+      const mime = blob.type.startsWith("image/") ? blob.type : (mimeMap[ext] ?? "image/jpeg");
+      const correctedBlob = new Blob([blob], { type: mime });
+      return new File([correctedBlob], ev.name || `evidence.${ext}`, { type: mime });
+    } catch {
+      return null;
     }
+  }
 
-    const links =
-      evidences.length > 0
-        ? `\n\n📎 Evidence:\n${evidences.map((e, i) => `${i + 1}. ${e.url}`).join("\n")}`
-        : "";
-    const full = msg + links;
+  async function share(channel: "whatsapp" | "sms") {
+    setShareError("");
+    const imgEvs = evidences.filter(
+      (e) => e.type === "image" || /\.(jpg|jpeg|png|gif|webp)$/i.test(e.url ?? "")
+    ).slice(0, 5);
 
+    const phone = (debt.phone ?? "").replace(/\D/g, "");
+    const intlPhone = phone.startsWith("0") ? "234" + phone.slice(1) : phone;
+
+    // ── WhatsApp ───────────────────────────────────────────────────────────────
     if (channel === "whatsapp") {
-      // WhatsApp Web/app works on both desktop and mobile via wa.me
-      const phone = debt.phone ? debt.phone.replace(/\D/g, "") : "";
-      const intlPhone = phone.startsWith("0") ? "234" + phone.slice(1) : phone;
+
+      // Step 1: If on mobile and has images, try Web Share API (native attach)
+      if (imgEvs.length > 0 && isMobileDevice() && typeof navigator.share === "function") {
+        setShareStatus("loading");
+        try {
+          const files = (await Promise.all(imgEvs.map(fetchImageFile))).filter(Boolean) as File[];
+
+          if (files.length > 0) {
+            // Try sharing files + text together
+            if (navigator.canShare?.({ files, text: msg })) {
+              await navigator.share({ files, text: msg });
+              setShareStatus("done");
+              setTimeout(onClose, 600);
+              return;
+            }
+
+            // canShare returned false — share files only, then open wa.me with text
+            if (navigator.canShare?.({ files })) {
+              await navigator.share({ files });
+              // Small delay then open WhatsApp with message text
+              setTimeout(() => {
+                window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+              }, 800);
+              setShareStatus("done");
+              setTimeout(onClose, 1200);
+              return;
+            }
+          }
+        } catch (err: unknown) {
+          if ((err as Error)?.name === "AbortError") {
+            setShareStatus("idle");
+            return; // User cancelled the share sheet — do nothing
+          }
+          // Other error — fall through to wa.me
+        } finally {
+          setShareStatus("idle");
+        }
+      }
+
+      // Step 2: wa.me deep link (text message) — always works
       window.open(
-        `https://wa.me/${intlPhone}?text=${encodeURIComponent(full)}`,
+        `https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`,
         "_blank"
       );
       onClose();
       return;
     }
 
-    // SMS: sms: URI only works on devices with a default SMS app (mobile).
-    // On desktop, fall back to copying the message to the clipboard.
+    // ── SMS ────────────────────────────────────────────────────────────────────
     if (isMobileDevice()) {
-      window.location.href = `sms:${debt.phone ?? ""}?body=${encodeURIComponent(full)}`;
+      window.location.href = `sms:${debt.phone ?? ""}?body=${encodeURIComponent(msg)}`;
       onClose();
     } else {
       try {
-        await navigator.clipboard.writeText(full);
+        await navigator.clipboard.writeText(msg);
         setSmsCopied(true);
         setTimeout(() => setSmsCopied(false), 2500);
       } catch {
-        // Clipboard API unavailable — select-all fallback isn't practical here, just no-op
+        // no-op
       }
     }
   }
@@ -929,9 +963,11 @@ function ReminderModal({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => share("whatsapp")}
-                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl group"
+                  disabled={shareStatus === "loading"}
+                  className="flex flex-col items-center gap-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 py-4 px-3 rounded-xl group disabled:opacity-70"
                 >
                   <div className="w-10 h-10 bg-[#25D366] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                    {shareStatus === "loading" && <Loader2 size={18} className="text-white animate-spin absolute" />}
                     <svg
                       width="20"
                       height="20"
@@ -944,7 +980,11 @@ function ReminderModal({
                   <div className="text-center">
                     <p className="text-sm font-bold text-ink-800">WhatsApp</p>
                     <p className="text-[10px] text-ink-500">
-                      {evidences.length > 0 ? "Msg + images" : "Text only"}
+                      {shareStatus === "loading"
+                        ? "Fetching images..."
+                        : evidences.length > 0
+                        ? "Message + images"
+                        : "Text only"}
                     </p>
                   </div>
                 </button>
