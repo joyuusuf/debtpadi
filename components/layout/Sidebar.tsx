@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useAvatar } from "@/context/AvatarContext";
-import Image from "next/image";
 
 const NAV = [
   { href: "/dashboard",  label: "Dashboard",   icon: LayoutDashboard },
@@ -50,8 +49,8 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-5 pt-5 pb-4">
         <Link href="/dashboard" className="block">
-          <Image src="/debtpadi.png" alt="DebtPadi" width={120} height={32}
-            className="object-contain brightness-0 invert" priority />
+          <img src="/logo-white.svg" alt="DebtPadi" width={140} height={37}
+            style={{height:"37px",width:"auto"}} />
         </Link>
       </div>
 
@@ -156,8 +155,7 @@ export default function Sidebar() {
       {/* Mobile top-bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#0f1117] border-b border-white/10 h-14 flex items-center justify-between px-4">
         <Link href="/dashboard">
-          <Image src="/debtpadi.png" alt="DebtPadi" width={100} height={28}
-            className="object-contain brightness-0 invert" priority />
+          <img src="/logo-white.svg" alt="DebtPadi" style={{height:"30px",width:"auto"}} />
         </Link>
         <button onClick={() => setMobileOpen((v) => !v)}
           className="p-2 rounded-xl text-white/60 hover:bg-white/10 transition" aria-label="Toggle menu">

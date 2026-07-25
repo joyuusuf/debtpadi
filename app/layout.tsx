@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AvatarProvider } from "@/context/AvatarContext";
-import { AuthProvider } from "../context/AuthContext"; // ✅ Import AuthProvider
+import { AuthProvider } from "../context/AuthContext";
 
 export const metadata: Metadata = {
-  title: "DebtPadi - Smart Credit Tracker for Nigerian Businesses",
+  title: "DebtPadi — Smart Credit Tracker for Nigerian Businesses",
   description:
     "Track who owes you, send reminders, and get paid faster. Built for Nigerian small business owners.",
+  icons: {
+    icon: "/logo-mark.svg",
+    shortcut: "/logo-mark.svg",
+    apple: "/logo-mark.svg",
+  },
+  openGraph: {
+    title: "DebtPadi — Smart Credit Tracker",
+    description: "Track debts, send WhatsApp reminders, and collect faster.",
+    images: [{ url: "/logo.svg" }],
+  },
 };
 
 export default function RootLayout({

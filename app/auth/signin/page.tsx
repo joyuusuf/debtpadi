@@ -60,7 +60,7 @@ export default function SignInPage() {
         <div className="mb-12 w-32 h-8 bg-white">
           <Link href="/" className="inline-flex items-center">
             <Image
-              src="/debtpadi.png"
+              src="/logo.svg"
               alt="DebtPadi Logo"
               width={140}
               height={40}

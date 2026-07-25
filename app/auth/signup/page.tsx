@@ -75,7 +75,7 @@
 //         <div className="mb-12">
 //           <Link href="/" className="inline-flex items-center">
 //             <Image
-//               src="/debtpadi.png"
+//               src="/logo.svg"
 //               alt="DebtPadi Logo"
 //               width={140}
 //               height={40}
@@ -519,7 +519,7 @@ export default function SignUpPage() {
         <div className="mb-12 bg-white w-32 h-8">
           <Link href="/" className="inline-flex items-center">
             <Image
-              src="/debtpadi.png"
+              src="/logo.svg"
               alt="DebtPadi Logo"
               width={140}
               height={40}
