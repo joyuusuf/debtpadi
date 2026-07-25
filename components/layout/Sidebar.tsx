@@ -100,32 +100,37 @@ export default function Sidebar() {
       {/* Plan banner */}
       <div className="mx-3 mb-4 px-3 py-3 rounded-xl bg-white/5 border border-white/10">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-white/50 text-xs">
-            {usage?.isPaid ? "Pro plan" : "Free plan"}
+          <span className="text-white/50 text-xs capitalize">
+            {usage
+              ? usage.plan === "starter" ? "Free plan"
+                : usage.plan === "growth" ? "Growth plan"
+                : usage.plan === "business" ? "Business plan"
+                : usage.plan + " plan"
+              : "Free plan"}
           </span>
-          {!usage?.isPaid && (
+          {(!usage || usage.plan === "starter") && (
             <Link href="/subscription"
               className="text-jade text-xs font-bold hover:text-jade-300 transition-colors flex items-center gap-1">
               <Zap size={11} /> Upgrade
             </Link>
           )}
         </div>
-        {!usage?.isPaid && usage ? (
+        {(!usage || usage.plan === "starter") ? (
           <>
             <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
               <div
                 className="h-full bg-jade rounded-full transition-all"
-                style={{ width: `${Math.min(100, (usage.customers.used / (usage.customers.limit ?? 10)) * 100)}%` }}
+                style={{ width: `${Math.min(100, (usage ? (usage.customers.used / (usage.customers.limit ?? 10)) * 100 : 0))}%` }}
               />
             </div>
-            <p className={`text-[10px] mt-1.5 ${(usage.customers.remaining ?? 1) <= 0 ? "text-coral-400 font-medium" : "text-white/30"}`}>
-              {usage.customers.used} / {usage.customers.limit} customers used
+            <p className={`text-[10px] mt-1.5 ${(usage?.customers.remaining ?? 1) <= 0 ? "text-coral-400 font-medium" : "text-white/30"}`}>
+              {usage ? `${usage.customers.used} / ${usage.customers.limit} customers used` : "Loading..."}
             </p>
           </>
-        ) : usage?.isPaid ? (
-          <p className="text-jade/60 text-[10px]">Unlimited customers &amp; debts</p>
+        ) : usage.plan === "growth" ? (
+          <p className="text-jade/60 text-[10px]">Up to 100 customers · unlimited debts</p>
         ) : (
-          <div className="h-1.5 bg-white/10 rounded-full" />
+          <p className="text-jade/60 text-[10px]">Unlimited customers &amp; debts</p>
         )}
       </div>
 
