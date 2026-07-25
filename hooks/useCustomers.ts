@@ -44,6 +44,7 @@ function getToken() {
 async function apiFetch<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...opts,
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${getToken()}`,
@@ -51,7 +52,19 @@ async function apiFetch<T = unknown>(path: string, opts: RequestInit = {}): Prom
     },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
+  if (!res.ok) {
+    const err = new Error(data.error || "Request failed") as Error & {
+      code?: string;
+      resource?: string;
+      limit?: number;
+      current?: number;
+    };
+    err.code = data.code;
+    err.resource = data.resource;
+    err.limit = data.limit;
+    err.current = data.current;
+    throw err;
+  }
   return data;
 }
 

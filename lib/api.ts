@@ -24,6 +24,7 @@ async function request<T = unknown>(
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     credentials: "include",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -43,7 +44,17 @@ async function request<T = unknown>(
   }
 
   if (!res.ok) {
-    throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    const err = new Error(data.error || data.message || `HTTP ${res.status}`) as Error & {
+      code?: string;
+      resource?: string;
+      limit?: number;
+      current?: number;
+    };
+    err.code = data.code;
+    err.resource = data.resource;
+    err.limit = data.limit;
+    err.current = data.current;
+    throw err;
   }
 
   return data as ApiResponse<T>;
@@ -95,6 +106,15 @@ export const auth = {
 
 export const profile = {
   get: () => request<Record<string, unknown>>("/users/me"),
+
+  usage: () =>
+    request<{
+      plan: string;
+      isPaid: boolean;
+      planExpiresAt: string | null;
+      customers: { used: number; limit: number | null; remaining: number | null };
+      debts: { used: number; limit: number | null; remaining: number | null };
+    }>("/users/usage"),
 
   update: (body: {
     name?: string;

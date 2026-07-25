@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { formatNaira, getStatusColor } from "@/lib/data";
 import TopBar from "@/components/layout/TopBar";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
+import { UpgradeModal } from "@/components/ui/UpgradeModal";
 import {
   useCustomers,
   type Customer,
@@ -482,6 +484,8 @@ export default function CustomersPage() {
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const { usage, customersAtLimit, refresh: refreshUsage } = usePlanUsage();
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -543,12 +547,19 @@ export default function CustomersPage() {
           <p className="text-ink-500 text-sm flex-1">
             Manage your credit customers and their history
           </p>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg w-full sm:w-auto"
-          >
-            <Plus size={16} /> Add Customer
-          </button>
+          <div className="flex flex-col items-stretch sm:items-end gap-1.5">
+            <button
+              onClick={() => (customersAtLimit ? setShowUpgrade(true) : setShowAddModal(true))}
+              className="flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-all hover:shadow-lg w-full sm:w-auto"
+            >
+              <Plus size={16} /> Add Customer
+            </button>
+            {usage && !usage.isPaid && (
+              <p className={`text-xs text-right ${customersAtLimit ? "text-coral-500 font-medium" : "text-ink-400"}`}>
+                {usage.customers.used} / {usage.customers.limit} customers used
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -723,7 +734,20 @@ export default function CustomersPage() {
       {/* ── Add Customer Modal ─────────────────────────────────────────────── */}
       {showAddModal && (
         <AddCustomerModal
-          onSave={addCustomer}
+          onSave={async (form) => {
+            try {
+              await addCustomer(form);
+              refreshUsage();
+            } catch (err: any) {
+              if (err?.code === "PLAN_LIMIT_REACHED") {
+                setShowAddModal(false);
+                setShowUpgrade(true);
+                refreshUsage();
+                return;
+              }
+              throw err;
+            }
+          }}
           onClose={() => setShowAddModal(false)}
         />
       )}
@@ -793,6 +817,10 @@ export default function CustomersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showUpgrade && (
+        <UpgradeModal resource="customers" limit={usage?.customers.limit ?? 10} onClose={() => setShowUpgrade(false)} />
       )}
     </>
   );

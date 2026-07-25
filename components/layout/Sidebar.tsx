@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
 import {
   LayoutDashboard,
   BookOpen,
@@ -34,6 +35,7 @@ export default function Sidebar() {
   const pathname  = usePathname();
   const { user, logout } = useAuth();
   const { avatar } = useAvatar();
+  const { usage } = usePlanUsage();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -96,19 +98,36 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Free plan banner */}
+      {/* Plan banner */}
       <div className="mx-3 mb-4 px-3 py-3 rounded-xl bg-white/5 border border-white/10">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-white/50 text-xs">Free plan</span>
-          <Link href="/settings?tab=billing"
-            className="text-jade text-xs font-bold hover:text-jade-300 transition-colors flex items-center gap-1">
-            <Zap size={11} /> Upgrade
-          </Link>
+          <span className="text-white/50 text-xs">
+            {usage?.isPaid ? "Pro plan" : "Free plan"}
+          </span>
+          {!usage?.isPaid && (
+            <Link href="/settings?tab=billing"
+              className="text-jade text-xs font-bold hover:text-jade-300 transition-colors flex items-center gap-1">
+              <Zap size={11} /> Upgrade
+            </Link>
+          )}
         </div>
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-jade rounded-full" style={{ width: "60%" }} />
-        </div>
-        <p className="text-white/30 text-[10px] mt-1.5">12 / 10 customers used</p>
+        {!usage?.isPaid && usage ? (
+          <>
+            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-jade rounded-full transition-all"
+                style={{ width: `${Math.min(100, (usage.customers.used / (usage.customers.limit ?? 10)) * 100)}%` }}
+              />
+            </div>
+            <p className={`text-[10px] mt-1.5 ${(usage.customers.remaining ?? 1) <= 0 ? "text-coral-400 font-medium" : "text-white/30"}`}>
+              {usage.customers.used} / {usage.customers.limit} customers used
+            </p>
+          </>
+        ) : usage?.isPaid ? (
+          <p className="text-jade/60 text-[10px]">Unlimited customers &amp; debts</p>
+        ) : (
+          <div className="h-1.5 bg-white/10 rounded-full" />
+        )}
       </div>
 
       {/* User row */}

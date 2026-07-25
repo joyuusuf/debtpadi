@@ -7,6 +7,7 @@ import TopBar from "@/components/layout/TopBar";
 import { useAvatar } from "@/context/AvatarContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Toast } from "@/components/ui/Toast";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-ink-100 rounded-lg ${className}`} />;
@@ -87,6 +88,7 @@ export default function SettingsPage() {
   const { avatar: avatarSrc, setAvatar: saveAvatar } = useAvatar();
   const { user, login } = useAuth();
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const { usage } = usePlanUsage();
 
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -408,21 +410,48 @@ export default function SettingsPage() {
                   <h2 className="font-heading font-bold text-lg sm:text-xl text-ink-900 mb-4">Current Plan</h2>
                   <div className="bg-ink-50 rounded-xl p-4 flex items-center justify-between gap-3 mb-4">
                     <div>
-                      <p className="font-heading font-semibold text-ink-800">Free Plan</p>
-                      <p className="text-ink-400 text-sm">Up to 10 customers</p>
+                      <p className="font-heading font-semibold text-ink-800">
+                        {usage?.isPaid ? "Pro Plan" : "Free Plan"}
+                      </p>
+                      <p className="text-ink-400 text-sm">
+                        {usage?.isPaid ? "Unlimited customers & debts" : "Up to 10 customers & 10 active debts"}
+                      </p>
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-ink-200 text-ink-600 text-xs font-semibold">Active</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      usage?.isPaid ? "bg-jade/15 text-jade-700" : "bg-ink-200 text-ink-600"
+                    }`}>
+                      {usage?.isPaid ? "Pro" : "Active"}
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-ink-600">Customers used</span>
-                      <span className="font-semibold text-ink-800">12 / 10</span>
+
+                  {!usage?.isPaid && usage && (
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-ink-600">Customers used</span>
+                          <span className="font-semibold text-ink-800">{usage.customers.used} / {usage.customers.limit}</span>
+                        </div>
+                        <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-jade rounded-full" style={{ width: `${Math.min(100, ((usage.customers.limit ?? 1) > 0 ? (usage.customers.used / (usage.customers.limit ?? 1)) * 100 : 0))}%` }} />
+                        </div>
+                        {(usage.customers.remaining ?? 1) <= 0 && (
+                          <p className="text-coral-500 text-xs mt-1.5 font-medium">Limit reached — upgrade to add more customers</p>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-ink-600">Active debts used</span>
+                          <span className="font-semibold text-ink-800">{usage.debts.used} / {usage.debts.limit}</span>
+                        </div>
+                        <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min(100, ((usage.debts.limit ?? 1) > 0 ? (usage.debts.used / (usage.debts.limit ?? 1)) * 100 : 0))}%` }} />
+                        </div>
+                        {(usage.debts.remaining ?? 1) <= 0 && (
+                          <p className="text-coral-500 text-xs mt-1.5 font-medium">Limit reached — upgrade to add more debts</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-jade rounded-full" style={{ width: "100%" }} />
-                    </div>
-                    <p className="text-coral-500 text-xs mt-1.5 font-medium">Limit reached — upgrade to add more customers</p>
-                  </div>
+                  )}
                 </div>
 
                 <div className="bg-jade/5 border border-jade/20 rounded-2xl p-4 sm:p-6">

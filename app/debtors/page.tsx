@@ -27,6 +27,7 @@ import {
   Eye,
   ShoppingCart,
   Receipt,
+  Check,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Toast } from "@/components/ui/Toast";
@@ -41,6 +42,8 @@ import TopBar from "@/components/layout/TopBar";
 import PageSkeleton from "@/components/debtorsLayout/debtorsSkeleton";
 import { useWhatsappReminder } from "@/components/aiReminder/aiReminder";
 import { useDebts, type DebtForm } from "@/hooks/useDebts";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
+import { UpgradeModal } from "@/components/ui/UpgradeModal";
 import { createPortal } from "react-dom";
 
 const EMPTY_FORM: DebtForm = {
@@ -733,6 +736,7 @@ function ReminderModal({
     generate,
     message: aiMessage,
     loading: aiLoading,
+    error: aiError,
   } = useWhatsappReminder();
 
   useEffect(() => {
@@ -747,11 +751,18 @@ function ReminderModal({
     }
   }
 
+  const [smsCopied, setSmsCopied] = useState(false);
+
+  function isMobileDevice() {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  }
+
   async function share(channel: "whatsapp" | "sms") {
     const imgEvs = evidences.filter((e) => e.type === "image").slice(0, 3);
 
-    // Try Web Share API with actual image files
-    if (imgEvs.length > 0 && navigator.share) {
+    // Try Web Share API with actual image files (mobile only — desktop browsers rarely support file sharing)
+    if (imgEvs.length > 0 && navigator.share && isMobileDevice()) {
       const blobs = await Promise.all(imgEvs.map((e) => getBlob(e.url)));
       const shareFiles = blobs
         .map((b, i) =>
@@ -768,18 +779,38 @@ function ReminderModal({
       }
     }
 
-    // Fallback: text + links
     const links =
       evidences.length > 0
         ? `\n\n📎 Evidence:\n${evidences.map((e, i) => `${i + 1}. ${e.url}`).join("\n")}`
         : "";
     const full = msg + links;
+
     if (channel === "whatsapp") {
-      window.open(`https://wa.me/?text=${encodeURIComponent(full)}`, "_blank");
-    } else {
-      window.open(`sms:?body=${encodeURIComponent(full)}`, "_blank");
+      // WhatsApp Web/app works on both desktop and mobile via wa.me
+      const phone = debt.phone ? debt.phone.replace(/\D/g, "") : "";
+      const intlPhone = phone.startsWith("0") ? "234" + phone.slice(1) : phone;
+      window.open(
+        `https://wa.me/${intlPhone}?text=${encodeURIComponent(full)}`,
+        "_blank"
+      );
+      onClose();
+      return;
     }
-    onClose();
+
+    // SMS: sms: URI only works on devices with a default SMS app (mobile).
+    // On desktop, fall back to copying the message to the clipboard.
+    if (isMobileDevice()) {
+      window.location.href = `sms:${debt.phone ?? ""}?body=${encodeURIComponent(full)}`;
+      onClose();
+    } else {
+      try {
+        await navigator.clipboard.writeText(full);
+        setSmsCopied(true);
+        setTimeout(() => setSmsCopied(false), 2500);
+      } catch {
+        // Clipboard API unavailable — select-all fallback isn't practical here, just no-op
+      }
+    }
   }
 
   return (
@@ -877,7 +908,11 @@ function ReminderModal({
                 rows={4}
                 className="w-full bg-ink-50 border border-ink-200 rounded-xl px-4 py-3 text-ink-700 text-sm focus:border-jade/50 focus:ring-2 focus:ring-jade/10 transition-all resize-none"
               />
-              <p className="text-ink-400 text-xs mt-1">{msg.length} chars</p>
+              {aiError ? (
+                <p className="text-coral-500 text-xs mt-1">{aiError}</p>
+              ) : (
+                <p className="text-ink-400 text-xs mt-1">{msg.length} chars</p>
+              )}
             </div>
 
             <div>
@@ -906,15 +941,25 @@ function ReminderModal({
                 </button>
                 <button
                   onClick={() => share("sms")}
-                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 py-4 px-3 rounded-xl group"
+                  className="flex flex-col items-center gap-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 py-4 px-3 rounded-xl group relative"
                 >
                   <div className="w-10 h-10 bg-ink-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Phone size={18} className="text-white" />
+                    {smsCopied ? (
+                      <Check size={18} className="text-white" />
+                    ) : (
+                      <Phone size={18} className="text-white" />
+                    )}
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-bold text-ink-800">SMS</p>
+                    <p className="text-sm font-bold text-ink-800">
+                      {smsCopied ? "Copied!" : "SMS"}
+                    </p>
                     <p className="text-[10px] text-ink-500">
-                      {evidences.length > 0 ? "Msg + images" : "Text only"}
+                      {smsCopied
+                        ? "Paste in your SMS app"
+                        : isMobileDevice()
+                        ? evidences.length > 0 ? "Msg + images" : "Opens SMS app"
+                        : "Copies message"}
                     </p>
                   </div>
                 </button>
@@ -2046,6 +2091,8 @@ export default function DebtorsPage() {
   const [paymentDebt, setPaymentDebt] = useState<DebtRecord | null>(null);
   const [detailDebt, setDetailDebt] = useState<DebtRecord | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const { usage, debtsAtLimit, refresh: refreshUsage } = usePlanUsage();
 
   if (loading) return <PageSkeleton />;
   if (error)
@@ -2118,7 +2165,14 @@ export default function DebtorsPage() {
       } else {
         setToast({ message: "Debt record saved!", type: "success" });
       }
-    } catch (err: unknown) {
+      refreshUsage();
+    } catch (err: any) {
+      if (err?.code === "PLAN_LIMIT_REACHED") {
+        setAddOpen(false);
+        setShowUpgrade(true);
+        refreshUsage();
+        return;
+      }
       setActionError(err instanceof Error ? err.message : "Failed to add debt");
     }
   }
@@ -2212,12 +2266,19 @@ export default function DebtorsPage() {
         )}
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl hover:shadow-lg w-full sm:w-auto"
-          >
-            <Plus size={16} /> Add Debt Record
-          </button>
+          <div className="flex flex-col items-stretch sm:items-start gap-1.5 w-full sm:w-auto">
+            <button
+              onClick={() => (debtsAtLimit ? setShowUpgrade(true) : setAddOpen(true))}
+              className="flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-700 text-white font-semibold text-sm px-5 py-3 rounded-xl hover:shadow-lg w-full sm:w-auto"
+            >
+              <Plus size={16} /> Add Debt Record
+            </button>
+            {usage && !usage.isPaid && (
+              <p className={`text-xs ${debtsAtLimit ? "text-coral-500 font-medium" : "text-ink-400"}`}>
+                {usage.debts.used} / {usage.debts.limit} active debts used
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 bg-white border border-ink-100 rounded-xl px-4 py-2.5 mb-4 focus-within:border-jade/40 focus-within:ring-2 focus-within:ring-jade/10 transition-all">
@@ -2622,6 +2683,14 @@ export default function DebtorsPage() {
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+        />
+      )}
+
+      {showUpgrade && (
+        <UpgradeModal
+          resource="debts"
+          limit={usage?.debts.limit ?? 10}
+          onClose={() => setShowUpgrade(false)}
         />
       )}
     </>
