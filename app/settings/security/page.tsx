@@ -20,14 +20,6 @@ const ITEMS = [
     danger: false,
   },
   {
-    id: "two-factor",
-    icon: ShieldCheck,
-    title: "Two-factor authentication",
-    description: "Add an extra layer of security to your account",
-    href: "/settings/security/two-factor",
-    danger: false,
-  },
-  {
     id: "sessions",
     icon: Laptop,
     title: "Active sessions",

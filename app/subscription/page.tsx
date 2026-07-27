@@ -88,10 +88,10 @@ const PLANS = [
 // ── FAQ data ──────────────────────────────────────────────────────────────────
 const FAQS = [
   { q: "Can I cancel anytime?", a: "Yes. Your plan stays active until the end of the billing period. After that you move to Starter automatically — no charges." },
-  { q: "What payment methods do you accept?", a: "We use Flutterwave which supports debit cards, credit cards, bank transfer, and USSD — all Nigerian banks supported." },
+  { q: "What payment methods do you accept?", a: "We use Flutterwave which supports debit cards, credit cards, bank transfer, and USSD, all Nigerian banks supported." },
   { q: "What happens when I hit the customer limit?", a: "You can still view and manage existing customers and debts. You just won't be able to add new ones until you upgrade or free up space." },
   { q: "Is my data safe if I downgrade?", a: "Absolutely. All your records stay intact. You just lose access to premium features." },
-  { q: "Do you offer annual billing?", a: "Not yet — monthly billing only for now. Annual plans with a discount are coming soon." },
+  { q: "Do you offer annual billing?", a: "Not yet, monthly billing only for now. Annual plans with a discount are coming soon." },
 ];
 
 export default function SubscriptionPage() {

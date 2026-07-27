@@ -381,7 +381,6 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   {[
                     { label: "Change password",           desc: "Update your account password",          href: "/settings/security/change-password", danger: false },
-                    { label: "Two-factor authentication", desc: "Add an extra layer of security",         href: "/settings/security/two-factor",       danger: false },
                     { label: "Active sessions",           desc: "View and manage your active sessions",   href: "/settings/security/sesssions",         danger: false },
                     { label: "Delete account",            desc: "Permanently delete your account",       href: "/settings/security/delete-account",   danger: true  },
                   ].map(item => (
